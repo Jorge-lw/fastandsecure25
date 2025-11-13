@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Script para hacer peticiones periódicas a los contenedores vulnerables
-# Se ejecuta en background y genera logs
+# Script to make periodic requests to vulnerable containers
+# Runs in background and generates logs
 
 set -e
 
@@ -11,18 +11,18 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Configuración
+# Configuration
 NAMESPACE="${NAMESPACE:-vulnerable-apps}"
-INTERVAL="${INTERVAL:-30}"  # Segundos entre peticiones
+INTERVAL="${INTERVAL:-30}"  # Seconds between requests
 LOG_FILE="${LOG_FILE:-/tmp/container-monitor.log}"
 PID_FILE="${PID_FILE:-/tmp/container-monitor.pid}"
 
-# Función para logging
+# Logging function
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-# Función para hacer petición HTTP
+# Function to make HTTP request
 make_request() {
     local URL=$1
     local NAME=$2
@@ -47,65 +47,65 @@ make_request() {
     fi
 }
 
-# Función para verificar pod y hacer port-forward
+# Function to verify pod and set up port-forward
 setup_port_forward() {
     local SERVICE=$1
     local PORT=$2
     local PF_PID_FILE="/tmp/pf-$SERVICE.pid"
     
-    # Verificar si el port-forward ya está corriendo
+    # Check if port-forward is already running
     if [ -f "$PF_PID_FILE" ]; then
         OLD_PID=$(cat "$PF_PID_FILE")
         if ps -p "$OLD_PID" > /dev/null 2>&1; then
-            return 0  # Ya está corriendo
+            return 0  # Already running
         fi
     fi
     
-    # Iniciar port-forward en background
+    # Start port-forward in background
     kubectl port-forward -n "$NAMESPACE" "svc/$SERVICE" "$PORT:$PORT" > /dev/null 2>&1 &
     PF_PID=$!
     echo $PF_PID > "$PF_PID_FILE"
-    sleep 2  # Esperar a que el port-forward se establezca
+    sleep 2  # Wait for port-forward to establish
     
     if ps -p "$PF_PID" > /dev/null 2>&1; then
-        log "${GREEN}✓${NC} Port-forward para $SERVICE iniciado (PID: $PF_PID)"
+        log "${GREEN}✓${NC} Port-forward for $SERVICE started (PID: $PF_PID)"
         return 0
     else
-        log "${RED}✗${NC} Error iniciando port-forward para $SERVICE"
+        log "${RED}✗${NC} Error starting port-forward for $SERVICE"
         return 1
     fi
 }
 
-# Función principal de monitoreo
+# Main monitoring function
 monitor_containers() {
-    log "${BLUE}=== Iniciando monitoreo de contenedores ===${NC}"
+    log "${BLUE}=== Starting container monitoring ===${NC}"
     log "Namespace: $NAMESPACE"
-    log "Intervalo: $INTERVAL segundos"
+    log "Interval: $INTERVAL seconds"
     log "Log file: $LOG_FILE"
     
-    # Verificar que kubectl está configurado
+    # Verify kubectl is configured
     if ! kubectl cluster-info > /dev/null 2>&1; then
-        log "${RED}✗ Error: kubectl no está configurado correctamente${NC}"
+        log "${RED}✗ Error: kubectl is not configured correctly${NC}"
         exit 1
     fi
     
-    # Verificar que el namespace existe
+    # Verify namespace exists
     if ! kubectl get namespace "$NAMESPACE" > /dev/null 2>&1; then
-        log "${RED}✗ Error: Namespace $NAMESPACE no existe${NC}"
+        log "${RED}✗ Error: Namespace $NAMESPACE does not exist${NC}"
         exit 1
     fi
     
-    # Obtener servicios disponibles
+    # Get available services
     SERVICES=$(kubectl get services -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
     
     if [ -z "$SERVICES" ]; then
-        log "${YELLOW}⚠ No se encontraron servicios en el namespace $NAMESPACE${NC}"
+        log "${YELLOW}⚠ No services found in namespace $NAMESPACE${NC}"
         exit 1
     fi
     
-    log "${GREEN}Servicios encontrados: $SERVICES${NC}"
+    log "${GREEN}Services found: $SERVICES${NC}"
     
-    # Configurar port-forwards para cada servicio
+    # Set up port-forwards for each service
     for SERVICE in $SERVICES; do
         case $SERVICE in
             vulnerable-web-app)
@@ -123,16 +123,16 @@ monitor_containers() {
         esac
     done
     
-    # Loop principal de monitoreo
+    # Main monitoring loop
     while true; do
-        log "${YELLOW}--- Ciclo de monitoreo ---${NC}"
+        log "${YELLOW}--- Monitoring cycle ---${NC}"
         
-        # Verificar estado de los pods
+        # Check pod status
         PODS=$(kubectl get pods -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
         POD_COUNT=$(echo $PODS | wc -w)
-        log "Pods activos: $POD_COUNT"
+        log "Active pods: $POD_COUNT"
         
-        # Hacer peticiones a cada servicio
+        # Make requests to each service
         for SERVICE in $SERVICES; do
             case $SERVICE in
                 vulnerable-web-app)
@@ -149,10 +149,10 @@ monitor_containers() {
                     ;;
                 vulnerable-database)
                     if setup_port_forward "$SERVICE" 3306; then
-                        # Para MySQL, intentar conexión
+                        # For MySQL, try connection
                         timeout 2 mysql -h localhost -P 3306 -u root -proot123 -e "SELECT 1" > /dev/null 2>&1 && \
-                            log "${GREEN}✓${NC} vulnerable-database: Conexión exitosa" || \
-                            log "${RED}✗${NC} vulnerable-database: Error de conexión"
+                            log "${GREEN}✓${NC} vulnerable-database: Connection successful" || \
+                            log "${RED}✗${NC} vulnerable-database: Connection error"
                     fi
                     ;;
                 vulnerable-legacy-app)
@@ -163,23 +163,23 @@ monitor_containers() {
             esac
         done
         
-        # Esperar antes del siguiente ciclo
+        # Wait before next cycle
         sleep "$INTERVAL"
     done
 }
 
-# Función para detener el monitoreo
+# Function to stop monitoring
 stop_monitoring() {
     if [ -f "$PID_FILE" ]; then
         PID=$(cat "$PID_FILE")
         if ps -p "$PID" > /dev/null 2>&1; then
             kill "$PID" 2>/dev/null
-            log "Monitoreo detenido (PID: $PID)"
+            log "Monitoring stopped (PID: $PID)"
         fi
         rm -f "$PID_FILE"
     fi
     
-    # Detener todos los port-forwards
+    # Stop all port-forwards
     for PF_FILE in /tmp/pf-*.pid; do
         if [ -f "$PF_FILE" ]; then
             PF_PID=$(cat "$PF_FILE")
@@ -188,31 +188,31 @@ stop_monitoring() {
         fi
     done
     
-    log "Todos los port-forwards detenidos"
+    log "All port-forwards stopped"
 }
 
-# Manejo de señales
+# Signal handling
 trap 'stop_monitoring; exit 0' SIGTERM SIGINT
 
-# Verificar argumentos
+# Check arguments
 case "${1:-start}" in
     start)
-        # Verificar si ya está corriendo
+        # Check if already running
         if [ -f "$PID_FILE" ]; then
             OLD_PID=$(cat "$PID_FILE")
             if ps -p "$OLD_PID" > /dev/null 2>&1; then
-                echo -e "${YELLOW}El monitoreo ya está corriendo (PID: $OLD_PID)${NC}"
-                echo "Usa '$0 stop' para detenerlo"
+                echo -e "${YELLOW}Monitoring is already running (PID: $OLD_PID)${NC}"
+                echo "Use '$0 stop' to stop it"
                 exit 1
             fi
         fi
         
-        # Iniciar en background
-        echo -e "${BLUE}Iniciando monitoreo en background...${NC}"
+        # Start in background
+        echo -e "${BLUE}Starting monitoring in background...${NC}"
         echo "Log file: $LOG_FILE"
         echo "PID file: $PID_FILE"
-        echo "Para detener: $0 stop"
-        echo "Para ver logs: tail -f $LOG_FILE"
+        echo "To stop: $0 stop"
+        echo "To view logs: tail -f $LOG_FILE"
         
         monitor_containers > "$LOG_FILE" 2>&1 &
         MONITOR_PID=$!
@@ -220,9 +220,9 @@ case "${1:-start}" in
         
         sleep 2
         if ps -p "$MONITOR_PID" > /dev/null 2>&1; then
-            echo -e "${GREEN}✓ Monitoreo iniciado (PID: $MONITOR_PID)${NC}"
+            echo -e "${GREEN}✓ Monitoring started (PID: $MONITOR_PID)${NC}"
         else
-            echo -e "${RED}✗ Error iniciando monitoreo${NC}"
+            echo -e "${RED}✗ Error starting monitoring${NC}"
             exit 1
         fi
         ;;
@@ -233,39 +233,38 @@ case "${1:-start}" in
         if [ -f "$PID_FILE" ]; then
             PID=$(cat "$PID_FILE")
             if ps -p "$PID" > /dev/null 2>&1; then
-                echo -e "${GREEN}✓ Monitoreo corriendo (PID: $PID)${NC}"
+                echo -e "${GREEN}✓ Monitoring running (PID: $PID)${NC}"
                 echo "Log file: $LOG_FILE"
-                tail -20 "$LOG_FILE" 2>/dev/null || echo "No hay logs aún"
+                tail -20 "$LOG_FILE" 2>/dev/null || echo "No logs yet"
             else
-                echo -e "${RED}✗ Monitoreo no está corriendo${NC}"
+                echo -e "${RED}✗ Monitoring is not running${NC}"
                 rm -f "$PID_FILE"
             fi
         else
-            echo -e "${RED}✗ Monitoreo no está corriendo${NC}"
+            echo -e "${RED}✗ Monitoring is not running${NC}"
         fi
         ;;
     logs)
         if [ -f "$LOG_FILE" ]; then
             tail -f "$LOG_FILE"
         else
-            echo "No hay archivo de log"
+            echo "No log file"
         fi
         ;;
     *)
-        echo "Uso: $0 {start|stop|status|logs}"
+        echo "Usage: $0 {start|stop|status|logs}"
         echo ""
-        echo "Variables de entorno:"
-        echo "  NAMESPACE  - Namespace de Kubernetes (default: vulnerable-apps)"
-        echo "  INTERVAL   - Intervalo entre peticiones en segundos (default: 30)"
-        echo "  LOG_FILE   - Archivo de log (default: /tmp/container-monitor.log)"
+        echo "Environment variables:"
+        echo "  NAMESPACE  - Kubernetes namespace (default: vulnerable-apps)"
+        echo "  INTERVAL   - Interval between requests in seconds (default: 30)"
+        echo "  LOG_FILE   - Log file (default: /tmp/container-monitor.log)"
         echo ""
-        echo "Ejemplos:"
-        echo "  $0 start              # Iniciar monitoreo"
-        echo "  INTERVAL=60 $0 start  # Iniciar con intervalo de 60 segundos"
-        echo "  $0 stop               # Detener monitoreo"
-        echo "  $0 status             # Ver estado"
-        echo "  $0 logs               # Ver logs en tiempo real"
+        echo "Examples:"
+        echo "  $0 start              # Start monitoring"
+        echo "  INTERVAL=60 $0 start  # Start with 60 second interval"
+        echo "  $0 stop               # Stop monitoring"
+        echo "  $0 status             # View status"
+        echo "  $0 logs               # View logs in real time"
         exit 1
         ;;
 esac
-

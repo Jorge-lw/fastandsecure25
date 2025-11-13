@@ -1,59 +1,59 @@
-# Infraestructura de Laboratorio de Seguridad - AWS
+# Security Lab Infrastructure - AWS
 
-Este proyecto despliega una infraestructura básica en AWS con Terraform que incluye:
+This project deploys a basic infrastructure in AWS using Terraform that includes:
 
-- **Máquina Bastión**: Instancia EC2 con Ubuntu que expone SSH en el puerto 22222
-- **Cluster Kubernetes (EKS)**: Cluster mínimo para laboratorio en una VPC privada
-- **ECR Repositories**: Repositorios para imágenes Docker vulnerables
-- **Aplicaciones Vulnerables**: Varias aplicaciones Docker con diferentes tipos de vulnerabilidades
+- **Bastion Host**: EC2 instance with Ubuntu exposing SSH on port 22222
+- **Kubernetes Cluster (EKS)**: Minimal cluster for lab in a private VPC
+- **ECR Repositories**: Repositories for vulnerable Docker images
+- **Vulnerable Applications**: Various Docker applications with different types of vulnerabilities
 
-## Arquitectura
+## Architecture
 
 ```
 Internet
    │
-   ├─> Bastión VPC (10.0.0.0/16)
-   │   └─> EC2 Bastión (Puerto 22222)
+   ├─> Bastion VPC (10.0.0.0/16)
+   │   └─> EC2 Bastion (Port 22222)
    │
    └─> VPC Peering
        │
        └─> K8s VPC (10.1.0.0/16)
-           └─> EKS Cluster (Privado)
-               └─> Aplicaciones Vulnerables
+           └─> EKS Cluster (Private)
+               └─> Vulnerable Applications
 ```
 
-## Requisitos Previos
+## Prerequisites
 
-1. **AWS CLI** instalado y configurado
+1. **AWS CLI** installed and configured
 2. **Terraform** >= 1.0
-3. **Docker** instalado (para construir imágenes)
-4. **kubectl** instalado (para gestionar el cluster)
-5. **Clave SSH** para acceder al bastión
+3. **Docker** installed (to build images)
+4. **kubectl** installed (to manage the cluster)
+5. **SSH Key** to access the bastion
 
-## Configuración Inicial
+## Initial Setup
 
-### 1. Generar Clave SSH
+### 1. Generate SSH Key
 
 ```bash
 ssh-keygen -t rsa -b 4096 -f ~/.ssh/bastion_key
 ```
 
-### 2. Configurar Variables de Terraform
+### 2. Configure Terraform Variables
 
-Copia el archivo de ejemplo y edítalo:
+Copy the example file and edit it:
 
 ```bash
 cp terraform/terraform.tfvars.example terraform/terraform.tfvars
 ```
 
-Edita `terraform/terraform.tfvars` y agrega tu clave pública SSH:
+Edit `terraform/terraform.tfvars` and add your public SSH key:
 
 ```hcl
 aws_region = "us-east-1"
-bastion_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ... tu-clave-publica"
+bastion_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ... your-public-key"
 ```
 
-### 3. Desplegar Infraestructura
+### 3. Deploy Infrastructure
 
 ```bash
 cd terraform
@@ -62,57 +62,97 @@ terraform plan
 terraform apply
 ```
 
-Esto creará:
-- 2 VPCs (bastión y Kubernetes)
-- VPC Peering entre ellas
-- Instancia EC2 bastión con Ubuntu
-- Cluster EKS mínimo (1 nodo)
-- Repositorios ECR para imágenes vulnerables
+This will create:
+- 2 VPCs (bastion and Kubernetes)
+- VPC Peering between them
+- EC2 bastion instance with Ubuntu
+- Minimal EKS cluster (1 node)
+- ECR repositories for vulnerable images
 
-### 4. Obtener Información del Despliegue
+### 4. Get Deployment Information
 
 ```bash
 terraform output
 ```
 
-Anota especialmente:
-- `bastion_public_ip`: IP pública del bastión
-- `eks_cluster_name`: Nombre del cluster
-- `aws_region`: Región de AWS
+Note especially:
+- `bastion_public_ip`: Public IP of the bastion
+- `eks_cluster_name`: Cluster name
+- `aws_region`: AWS region
 
-## Construir y Subir Imágenes Docker
+## Install Security Agents
 
-Las imágenes vulnerables se encuentran en `docker-images/`:
+### Lacework Agent (FortiCNP) on Bastion
 
-- **vulnerable-web-app**: Aplicación Node.js con múltiples vulnerabilidades (XSS, SQL Injection, Path Traversal, etc.)
-- **vulnerable-api**: API Python/Flask con vulnerabilidades (Deserialización, Command Injection, SSRF, etc.)
-- **vulnerable-database**: MySQL con configuración insegura y datos de prueba
-- **vulnerable-legacy-app**: Aplicación legacy con vulnerabilidades conocidas
-
-### Construir y Subir Manualmente
+The Lacework agent is automatically installed during bastion deployment. If you need to install it manually:
 
 ```bash
-# Configurar variables de entorno
+# From the bastion
+./scripts/install-lacework-agent-bastion.sh
+
+# Or run manually
+sudo systemctl start lacework-agent
+sudo systemctl enable lacework-agent
+```
+
+### Lacework Agent in Kubernetes
+
+Deploy the agent as a DaemonSet in the cluster:
+
+```bash
+# From your local machine or from the bastion (with cluster access)
+./scripts/deploy-lacework-agent-k8s.sh
+```
+
+Or manually with Helm:
+
+```bash
+helm repo add lacework https://lacework.github.io/helm-charts
+helm repo update
+
+helm upgrade --install \
+  --namespace lacework \
+  --create-namespace \
+  --set laceworkConfig.accessToken='9b12ddd5c28fe9939c3a1f7948c073d989c6a8c37f100df0df5f3aaa' \
+  --set laceworkConfig.serverUrl='https://api.fra.lacework.net' \
+  --set laceworkConfig.kubernetesCluster='lab-cluster' \
+  lacework-agent \
+  lacework/lacework-agent
+```
+
+## Build and Push Docker Images
+
+Vulnerable images are located in `docker-images/`:
+
+- **vulnerable-web-app**: Node.js application with multiple vulnerabilities (XSS, SQL Injection, Path Traversal, etc.)
+- **vulnerable-api**: Python/Flask API with vulnerabilities (Deserialization, Command Injection, SSRF, etc.)
+- **vulnerable-database**: MySQL with insecure configuration and test data
+- **vulnerable-legacy-app**: Legacy application with known vulnerabilities
+
+### Build and Push Manually
+
+```bash
+# Set environment variables
 export AWS_REGION=$(cd terraform && terraform output -raw aws_region)
 export AWS_ACCOUNT_ID=$(cd terraform && terraform output -raw aws_account_id)
 
-# Ejecutar script
+# Run script
 chmod +x scripts/build-and-push-images.sh
 ./scripts/build-and-push-images.sh
 ```
 
-### O Usar el Script Completo
+### Or Use the Complete Script
 
 ```bash
 chmod +x scripts/complete-deployment.sh
 ./scripts/complete-deployment.sh
 ```
 
-## Desplegar Aplicaciones en el Cluster
+## Deploy Applications to the Cluster
 
-### Desde tu Máquina Local
+### From Your Local Machine
 
-Primero, configura kubectl:
+First, configure kubectl:
 
 ```bash
 export AWS_REGION=$(cd terraform && terraform output -raw aws_region)
@@ -120,263 +160,268 @@ export CLUSTER_NAME=$(cd terraform && terraform output -raw eks_cluster_name)
 aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
 ```
 
-Luego despliega:
+Then deploy:
 
 ```bash
 chmod +x scripts/deploy-to-cluster.sh
 ./scripts/deploy-to-cluster.sh
 ```
 
-### Desde el Bastión
+### From the Bastion
 
-1. Conéctate al bastión:
+1. Connect to the bastion:
 
 ```bash
 ssh -p 22222 -i ~/.ssh/bastion_key ubuntu@<BASTION_IP>
 ```
 
-2. Configura kubectl:
+2. Configure kubectl:
 
 ```bash
 aws eks update-kubeconfig --region <REGION> --name lab-cluster
 ```
 
-3. Despliega las aplicaciones:
+3. Deploy applications:
 
 ```bash
-# Desde el bastión, puedes ejecutar los mismos scripts
-# o usar kubectl directamente
+# From the bastion, you can run the same scripts
+# or use kubectl directly
 ```
 
-## Acceder a las Aplicaciones
+## Access Applications
 
-### Desde el Bastión
+### From the Bastion
 
-1. Conéctate al bastión vía SSH (puerto 22222)
-2. Configura port-forwarding:
+1. Connect to the bastion via SSH (port 22222)
+2. Set up port-forwarding:
 
 ```bash
-# Para la aplicación web
+# For the web application
 kubectl port-forward -n vulnerable-apps svc/vulnerable-web-app 3000:3000
 
-# Para la API
+# For the API
 kubectl port-forward -n vulnerable-apps svc/vulnerable-api 5000:5000
 ```
 
-3. Accede desde tu máquina local usando SSH tunnel:
+3. Access from your local machine using SSH tunnel:
 
 ```bash
 ssh -p 22222 -i ~/.ssh/bastion_key -L 3000:localhost:3000 ubuntu@<BASTION_IP>
 ```
 
-Luego accede a `http://localhost:3000` en tu navegador.
+Then access `http://localhost:3000` in your browser.
 
-## Tipos de Vulnerabilidades Incluidas
+## Types of Vulnerabilities Included
 
 ### vulnerable-web-app
 - **XSS (Cross-Site Scripting)**: `/search?q=<script>alert(1)</script>`
 - **SQL Injection**: `/users?id=1 OR 1=1`
 - **Path Traversal**: `/file?name=../../../etc/passwd`
 - **Command Injection**: `POST /execute {"command": "ls -la"}`
-- **Exposición de Secretos**: `/secrets`, `/debug`
-- **Versiones Vulnerables**: Node.js 14, Express 4.16.0
+- **Secret Exposure**: `/secrets`, `/debug`
+- **Vulnerable Versions**: Node.js 14, Express 4.16.0
 
 ### vulnerable-api
-- **Deserialización Insegura**: `POST /unpickle` (pickle)
+- **Unsafe Deserialization**: `POST /unpickle` (pickle)
 - **YAML Deserialization**: `POST /yaml`
 - **Command Injection**: `/ping?host=localhost; cat /etc/passwd`
 - **Path Traversal**: `/read?file=../../../etc/passwd`
 - **SSRF**: `/fetch?url=file:///etc/passwd`
-- **Autenticación Débil**: Header `X-Token: admin_token_never_change`
-- **Exposición de Variables**: `/env`
+- **Weak Authentication**: Header `X-Token: admin_token_never_change`
+- **Environment Variable Exposure**: `/env`
 
 ### vulnerable-database
-- **Credenciales Débiles**: root/root123, admin/admin123
-- **Sin Encriptación**: Contraseñas en texto plano
-- **Privilegios Excesivos**: Usuario 'test' con ALL PRIVILEGES
-- **Versión Antigua**: MySQL 5.7 con CVE conocidos
-- **Datos Sensibles**: SSN, tarjetas de crédito sin encriptar
+- **Weak Credentials**: root/root123, admin/admin123
+- **No Encryption**: Plain text passwords
+- **Excessive Privileges**: User 'test' with ALL PRIVILEGES
+- **Old Version**: MySQL 5.7 with known CVEs
+- **Sensitive Data**: SSN, credit cards unencrypted
 
 ### vulnerable-legacy-app
-- **Versión Antigua**: Tomcat 8.5 con vulnerabilidades conocidas
-- **Java Desactualizado**: OpenJDK 8
-- **Sin Security Manager**: Deshabilitado
-- **Permisos Excesivos**: Ejecución como root, privileged mode
+- **Old Version**: Tomcat 8.5 with known vulnerabilities
+- **Outdated Java**: OpenJDK 8
+- **No Security Manager**: Disabled
+- **Excessive Permissions**: Running as root, privileged mode
 
-## Comandos Útiles
+## Useful Commands
 
 ### Terraform
 
 ```bash
-# Ver plan
+# View plan
 terraform plan
 
-# Aplicar cambios
+# Apply changes
 terraform apply
 
-# Destruir infraestructura
+# Destroy infrastructure
 terraform destroy
 
-# Ver outputs
+# View outputs
 terraform output
 ```
 
 ### Kubernetes
 
 ```bash
-# Ver pods
+# View pods
 kubectl get pods -n vulnerable-apps
 
-# Ver servicios
+# View services
 kubectl get svc -n vulnerable-apps
 
-# Ver logs
+# View logs
 kubectl logs -n vulnerable-apps deployment/vulnerable-web-app
 
-# Ejecutar comando en pod
+# Execute command in pod
 kubectl exec -it -n vulnerable-apps deployment/vulnerable-web-app -- /bin/sh
 
-# Describir recurso
+# Describe resource
 kubectl describe pod -n vulnerable-apps <pod-name>
 ```
 
 ### Docker/ECR
 
 ```bash
-# Login a ECR
+# Login to ECR
 aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account-id>.dkr.ecr.<region>.amazonaws.com
 
-# Listar repositorios
+# List repositories
 aws ecr describe-repositories
 
-# Listar imágenes
+# List images
 aws ecr list-images --repository-name vulnerable-web-app
 ```
 
-## Seguridad y Consideraciones
+## Security and Considerations
 
-⚠️ **ADVERTENCIA**: Esta infraestructura está diseñada específicamente para un **laboratorio de seguridad**. **NO** debe usarse en producción.
+⚠️ **WARNING**: This infrastructure is specifically designed for a **security lab**. **DO NOT** use in production.
 
-Las vulnerabilidades incluidas son intencionales y están diseñadas para:
-- Práctica de técnicas de seguridad ofensiva
-- Pruebas de herramientas de escaneo de vulnerabilidades
-- Educación sobre seguridad de aplicaciones
-- Entrenamiento de equipos de seguridad
+The included vulnerabilities are intentional and designed for:
+- Practice of offensive security techniques
+- Testing vulnerability scanning tools
+- Education about application security
+- Security team training
 
-**Nunca despliegues esto en un entorno de producción o con datos reales.**
+**Never deploy this in a production environment or with real data.**
 
-## Limpieza
+## Cleanup
 
-Para destruir toda la infraestructura:
+To destroy all infrastructure:
 
 ```bash
 cd terraform
 terraform destroy
 ```
 
-Esto eliminará:
-- Todas las instancias EC2
-- El cluster EKS
-- Los repositorios ECR (las imágenes se eliminarán)
-- Las VPCs y recursos de red
-- Todos los recursos creados
+This will remove:
+- All EC2 instances
+- The EKS cluster
+- ECR repositories (images will be deleted)
+- VPCs and network resources
+- All created resources
 
 ## Troubleshooting
 
-### Error al conectar al cluster
+### Error connecting to cluster
 
 ```bash
-# Verificar que el cluster existe
+# Verify cluster exists
 aws eks describe-cluster --name lab-cluster --region <region>
 
-# Actualizar kubeconfig
+# Update kubeconfig
 aws eks update-kubeconfig --region <region> --name lab-cluster --kubeconfig ~/.kube/config
 ```
 
-### Error al subir imágenes a ECR
+### Error uploading images to ECR
 
 ```bash
-# Verificar permisos IAM
+# Verify IAM permissions
 aws sts get-caller-identity
 
-# Verificar login a ECR
+# Verify ECR login
 aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account-id>.dkr.ecr.<region>.amazonaws.com
 ```
 
-### Pods no inician
+### Pods not starting
 
 ```bash
-# Ver eventos
+# View events
 kubectl get events -n vulnerable-apps --sort-by='.lastTimestamp'
 
-# Ver logs
+# View logs
 kubectl logs -n vulnerable-apps <pod-name>
 
-# Describir pod
+# Describe pod
 kubectl describe pod -n vulnerable-apps <pod-name>
 ```
 
-## Scripts de Explotación
+## Exploitation Scripts
 
-Este proyecto incluye scripts de explotación para demostrar las vulnerabilidades y realizar movimiento lateral. Ver [exploitation/README.md](exploitation/README.md) para más detalles.
+This project includes exploitation scripts to demonstrate vulnerabilities and perform lateral movement. See [exploitation/README.md](exploitation/README.md) for more details.
 
-**Scripts disponibles:**
-- `exploit-web-app.sh` - Explota vulnerabilidades web (XSS, SQL Injection, etc.)
-- `exploit-api.sh` - Explota vulnerabilidades de API (deserialización, SSRF, etc.)
-- `exploit-database.sh` - Explota base de datos con credenciales débiles
-- `lateral-movement.sh` - Movimiento lateral desde bastión al cluster
-- `exploit-k8s.sh` - Explota vulnerabilidades de Kubernetes
-- `enumerate-resources.sh` - Enumera recursos del cluster
-- `steal-service-account-token.sh` - Roba tokens de service accounts
-- `reverse-shell.sh` - Establece reverse shells
-- `master-exploit.sh` - Script maestro que ejecuta todo
+**Available scripts:**
+- `exploit-web-app.sh` - Exploits web vulnerabilities (XSS, SQL Injection, etc.)
+- `exploit-api.sh` - Exploits API vulnerabilities (deserialization, SSRF, etc.)
+- `exploit-database.sh` - Exploits database with weak credentials
+- `lateral-movement.sh` - Lateral movement from bastion to cluster
+- `exploit-k8s.sh` - Exploits Kubernetes vulnerabilities
+- `enumerate-resources.sh` - Enumerates cluster resources
+- `steal-service-account-token.sh` - Steals service account tokens
+- `reverse-shell.sh` - Establishes reverse shells
+- `reverse-shell-persistent.sh` - Persistent reverse shells accessible from outside AWS
+- `generate-noise.sh` - Generates lots of noise and suspicious activity
+- `advanced-attacks.sh` - Advanced attack techniques (MITRE ATT&CK)
+- `establish-c2.sh` - Establishes C2 using ngrok/serveo
+- `ngrok-setup.sh` - Configures ngrok for external access
+- `master-exploit.sh` - Basic master script
+- `master-attack.sh` - Advanced master script (maximum noise)
 
-**Uso rápido:**
+**Quick usage:**
 ```bash
-# Desde el bastión
+# From the bastion
 cd ~/exploitation
 ./master-exploit.sh
 ```
 
-## Estructura del Proyecto
+## Project Structure
 
 ```
 .
 ├── terraform/
-│   ├── main.tf                 # Configuración principal
+│   ├── main.tf                 # Main configuration
 │   ├── variables.tf            # Variables
 │   ├── outputs.tf              # Outputs
-│   ├── terraform.tfvars.example # Ejemplo de variables
+│   ├── terraform.tfvars.example # Example variables
 │   └── modules/
-│       └── vpc/                # Módulo VPC
+│       └── vpc/                # VPC module
 ├── docker-images/
-│   ├── vulnerable-web-app/    # Aplicación web vulnerable
-│   ├── vulnerable-api/        # API vulnerable
-│   ├── vulnerable-database/   # Base de datos vulnerable
-│   └── vulnerable-legacy-app/ # Aplicación legacy vulnerable
+│   ├── vulnerable-web-app/    # Vulnerable web application
+│   ├── vulnerable-api/        # Vulnerable API
+│   ├── vulnerable-database/   # Vulnerable database
+│   └── vulnerable-legacy-app/ # Vulnerable legacy application
 ├── scripts/
-│   ├── build-and-push-images.sh    # Construir y subir imágenes
-│   ├── deploy-to-cluster.sh        # Desplegar en cluster
-│   ├── setup-bastion.sh            # Configurar bastión
-│   ├── complete-deployment.sh      # Script completo
-│   ├── cleanup-ecr.sh              # Limpiar ECR antes de destroy
-│   └── check-bastion.sh            # Verificar estado del bastión
+│   ├── build-and-push-images.sh    # Build and push images
+│   ├── deploy-to-cluster.sh        # Deploy to cluster
+│   ├── setup-bastion.sh            # Setup bastion
+│   ├── complete-deployment.sh      # Complete script
+│   ├── cleanup-ecr.sh              # Clean ECR before destroy
+│   └── check-bastion.sh            # Check bastion status
 ├── exploitation/
-│   ├── exploit-web-app.sh          # Explotar aplicación web
-│   ├── exploit-api.sh              # Explotar API
-│   ├── exploit-database.sh         # Explotar base de datos
-│   ├── exploit-k8s.sh              # Explotar Kubernetes
-│   ├── lateral-movement.sh         # Movimiento lateral
-│   ├── enumerate-resources.sh      # Enumerar recursos
-│   ├── steal-service-account-token.sh # Robar tokens
-│   ├── reverse-shell.sh            # Reverse shells
-│   ├── get-shell.sh                # Obtener shell interactiva
-│   ├── master-exploit.sh           # Script maestro
-│   └── README.md                   # Documentación de explotación
-└── README.md                  # Este archivo
+│   ├── exploit-web-app.sh          # Exploit web application
+│   ├── exploit-api.sh               # Exploit API
+│   ├── exploit-database.sh          # Exploit database
+│   ├── exploit-k8s.sh               # Exploit Kubernetes
+│   ├── lateral-movement.sh          # Lateral movement
+│   ├── enumerate-resources.sh       # Enumerate resources
+│   ├── steal-service-account-token.sh # Steal tokens
+│   ├── reverse-shell.sh              # Reverse shells
+│   ├── get-shell.sh                 # Get interactive shell
+│   ├── master-exploit.sh            # Master script
+│   └── README.md                    # Exploitation documentation
+└── README.md                  # This file
 ```
 
-## Licencia
+## License
 
-Este proyecto es solo para fines educativos y de laboratorio.
-
+This project is for educational and lab purposes only.

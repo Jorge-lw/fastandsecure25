@@ -21,15 +21,15 @@ data "aws_availability_zones" "available" {
 
 data "aws_caller_identity" "current" {}
 
-# VPC para máquina bastión
-# No necesita NAT Gateways porque solo tiene subnets públicas
+# VPC for bastion host
+# Does not need NAT Gateways because it only has public subnets
 module "bastion_vpc" {
   source = "./modules/vpc"
   
   name               = "bastion-vpc"
   cidr               = "10.0.0.0/16"
   availability_zones = slice(data.aws_availability_zones.available.names, 0, 2)
-  enable_nat_gateway = false  # No necesita NAT Gateway, solo subnets públicas
+  enable_nat_gateway = false  # Does not need NAT Gateway, only public subnets
   
   tags = {
     Environment = "lab"
@@ -37,8 +37,8 @@ module "bastion_vpc" {
   }
 }
 
-# VPC para cluster Kubernetes
-# Solo necesita 1 NAT Gateway para ahorrar costos en laboratorio
+# VPC for Kubernetes cluster
+# Only needs 1 NAT Gateway to save costs in lab
 module "k8s_vpc" {
   source = "./modules/vpc"
   
@@ -46,7 +46,7 @@ module "k8s_vpc" {
   cidr               = "10.1.0.0/16"
   availability_zones = slice(data.aws_availability_zones.available.names, 0, 2)
   enable_nat_gateway = true
-  nat_gateway_count  = 1  # Solo 1 NAT Gateway para ahorrar costos
+  nat_gateway_count  = 1  # Only 1 NAT Gateway to save costs
   
   tags = {
     Environment = "lab"
@@ -54,7 +54,7 @@ module "k8s_vpc" {
   }
 }
 
-# Peering entre VPCs
+# Peering between VPCs
 resource "aws_vpc_peering_connection" "bastion_to_k8s" {
   vpc_id      = module.bastion_vpc.vpc_id
   peer_vpc_id = module.k8s_vpc.vpc_id
@@ -65,7 +65,7 @@ resource "aws_vpc_peering_connection" "bastion_to_k8s" {
   }
 }
 
-# Route tables para peering
+# Route tables for peering
 resource "aws_route" "bastion_to_k8s" {
   route_table_id            = module.bastion_vpc.public_route_table_id
   destination_cidr_block    = module.k8s_vpc.cidr
@@ -78,23 +78,23 @@ resource "aws_route" "k8s_to_bastion" {
   vpc_peering_connection_id = aws_vpc_peering_connection.bastion_to_k8s.id
 }
 
-# Security Group para bastión
+# Security Group for bastion
 resource "aws_security_group" "bastion" {
   name        = "bastion-sg"
   description = "Security group for bastion host"
   vpc_id      = module.bastion_vpc.vpc_id
 
   ingress {
-    description = "SSH from internet (puerto 22222)"
+    description = "SSH from internet (port 22222)"
     from_port   = 22222
     to_port     = 22222
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Permitir también puerto 22 por si acaso (puedes eliminarlo después)
+  # Also allow port 22 just in case (you can remove it later)
   ingress {
-    description = "SSH from internet (puerto 22 - temporal)"
+    description = "SSH from internet (port 22 - temporary)"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -141,7 +141,7 @@ resource "aws_security_group" "eks_cluster" {
   }
 }
 
-# Key pair para bastión
+# Key pair for bastion
 resource "aws_key_pair" "bastion" {
   key_name   = "bastion-key"
   public_key = var.bastion_public_key
@@ -151,7 +151,7 @@ resource "aws_key_pair" "bastion" {
   }
 }
 
-# Data source para AMI de Ubuntu
+# Data source for Ubuntu AMI
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
@@ -167,7 +167,7 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# IAM role para EKS
+# IAM role for EKS
 resource "aws_iam_role" "eks_cluster" {
   name = "eks-cluster-role"
 
@@ -188,7 +188,7 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
   role       = aws_iam_role.eks_cluster.name
 }
 
-# IAM role para EKS node group
+# IAM role for EKS node group
 resource "aws_iam_role" "eks_node_group" {
   name = "eks-node-group-role"
 
@@ -274,9 +274,9 @@ resource "aws_eks_node_group" "main" {
   }
 }
 
-# Nota: Para que el bastión pueda autenticarse en el cluster EKS, necesitas agregar
-# el rol del bastión al ConfigMap aws-auth. Ejecuta el script scripts/add-bastion-to-eks.sh
-# después del despliegue, o usa el output del ARN del rol para hacerlo manualmente.
+# Note: For the bastion to authenticate to the EKS cluster, you need to add
+# the bastion role to the aws-auth ConfigMap. Run scripts/add-bastion-to-eks.sh
+# after deployment, or use the role ARN output to do it manually.
 
 # ECR Repositories
 resource "aws_ecr_repository" "vulnerable_images" {
@@ -284,7 +284,7 @@ resource "aws_ecr_repository" "vulnerable_images" {
   
   name                 = each.value
   image_tag_mutability = "MUTABLE"
-  force_delete         = true  # Permite eliminar el repositorio incluso si tiene imágenes
+  force_delete         = true  # Allows deleting repository even if it has images
 
   image_scanning_configuration {
     scan_on_push = false
@@ -296,7 +296,7 @@ resource "aws_ecr_repository" "vulnerable_images" {
   }
 }
 
-# IAM policy para que bastión pueda acceder a ECR
+# IAM policy for bastion to access ECR
 resource "aws_iam_instance_profile" "bastion" {
   name = "bastion-instance-profile"
   role = aws_iam_role.bastion.name
@@ -342,7 +342,7 @@ resource "aws_iam_role_policy" "bastion_ecr" {
   })
 }
 
-# Política para permitir acceso al cluster EKS
+# Policy to allow access to EKS cluster
 resource "aws_iam_role_policy" "bastion_eks" {
   name = "bastion-eks-policy"
   role = aws_iam_role.bastion.id
@@ -379,7 +379,7 @@ resource "aws_iam_role_policy" "bastion_eks" {
   depends_on = [aws_eks_cluster.main]
 }
 
-# Instancia EC2 bastión
+# EC2 bastion instance
 resource "aws_instance" "bastion" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
@@ -388,7 +388,7 @@ resource "aws_instance" "bastion" {
   subnet_id              = module.bastion_vpc.public_subnet_ids[0]
   iam_instance_profile   = aws_iam_instance_profile.bastion.name
 
-  # Asegurar que la instancia se cree después de que las políticas IAM estén listas
+  # Ensure instance is created after IAM policies are ready
   depends_on = [
     aws_iam_role_policy.bastion_ecr,
     aws_iam_role_policy.bastion_eks
@@ -396,81 +396,130 @@ resource "aws_instance" "bastion" {
 
   user_data = <<-EOF
     #!/bin/bash
-    # No usar set -e para evitar que falle silenciosamente
+    # Do not use set -e to avoid silent failures
     exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
     
-    echo "=== Iniciando configuración del bastión ==="
+    echo "=== Starting bastion configuration ==="
     date
     
-    # Actualizar sistema (no crítico si falla)
+    # Update system (not critical if it fails)
     export DEBIAN_FRONTEND=noninteractive
-    apt-get update -y || echo "ERROR: apt-get update falló"
-    apt-get upgrade -y || echo "ERROR: apt-get upgrade falló"
+    apt-get update -y || echo "ERROR: apt-get update failed"
+    apt-get upgrade -y || echo "ERROR: apt-get upgrade failed"
     
-    # Instalar y configurar SSH (CRÍTICO)
-    echo "Instalando openssh-server..."
-    apt-get install -y openssh-server || { echo "ERROR: No se pudo instalar openssh-server"; exit 1; }
+    # Install and configure SSH (CRITICAL)
+    echo "Installing openssh-server..."
+    apt-get install -y openssh-server || { echo "ERROR: Could not install openssh-server"; exit 1; }
     
-    # Backup del archivo de configuración
+    # Backup configuration file
     cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
     
-    # Configurar SSH en puerto 22222
-    echo "Configurando SSH en puerto 22222..."
+    # Configure SSH on port 22222
+    echo "Configuring SSH on port 22222..."
     if ! grep -q "^Port 22222" /etc/ssh/sshd_config; then
-      # Comentar cualquier línea Port existente
+      # Comment any existing Port line
       sed -i 's/^Port /#Port /' /etc/ssh/sshd_config
-      # Agregar nueva configuración
+      # Add new configuration
       echo "Port 22222" >> /etc/ssh/sshd_config
-      echo "Puerto 22222 agregado a sshd_config"
+      echo "Port 22222 added to sshd_config"
     else
-      echo "Puerto 22222 ya estaba configurado"
+      echo "Port 22222 already configured"
     fi
     
-    # Permitir root login para simplificar (en producción no hacer esto)
+    # Allow root login to simplify (do not do this in production)
     sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/^PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/^PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config
     
-    # Asegurar que SSH escuche en todas las interfaces
+    # Ensure SSH listens on all interfaces
     if ! grep -q "^ListenAddress" /etc/ssh/sshd_config; then
       echo "ListenAddress 0.0.0.0" >> /etc/ssh/sshd_config
     fi
     
-    # Reiniciar SSH
-    echo "Habilitando y reiniciando SSH..."
+    # Restart SSH
+    echo "Enabling and restarting SSH..."
     systemctl enable ssh || systemctl enable sshd
     systemctl restart ssh || systemctl restart sshd || service ssh restart || service sshd restart
     
-    # Esperar un momento y verificar
+    # Wait a moment and verify
     sleep 5
-    echo "Verificando estado de SSH..."
+    echo "Verifying SSH status..."
     systemctl status ssh || systemctl status sshd || service ssh status || service sshd status
     
-    # Verificar que SSH está escuchando en el puerto correcto
-    echo "Verificando puertos..."
-    ss -tlnp | grep 22222 && echo "✓ SSH está escuchando en 22222" || echo "✗ ADVERTENCIA: SSH no está escuchando en 22222"
-    ss -tlnp | grep :22 && echo "✓ SSH también está escuchando en 22" || echo "SSH no está en 22"
+    # Verify SSH is listening on the correct port
+    echo "Verifying ports..."
+    ss -tlnp | grep 22222 && echo "✓ SSH is listening on 22222" || echo "✗ WARNING: SSH is not listening on 22222"
+    ss -tlnp | grep :22 && echo "✓ SSH is also listening on 22" || echo "SSH is not on 22"
     
-    # Instalar herramientas necesarias (no crítico)
-    echo "Instalando herramientas..."
-    apt-get install -y curl wget git docker.io awscli jq unzip || echo "Algunas herramientas no se instalaron"
+    # Install necessary tools (not critical)
+    echo "Installing tools..."
+    apt-get install -y curl wget git docker.io awscli jq unzip || echo "Some tools were not installed"
     
-    # Instalar kubectl (no crítico)
+    # Install kubectl (not critical)
     if command -v curl > /dev/null; then
       curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
       chmod +x kubectl && \
       mv kubectl /usr/local/bin/ && \
-      echo "kubectl instalado" || echo "kubectl no se pudo instalar"
+      echo "kubectl installed" || echo "kubectl could not be installed"
     fi
     
-    # Configurar Docker (no crítico)
-    systemctl enable docker || echo "Docker no disponible"
-    systemctl start docker || echo "No se pudo iniciar Docker"
-    usermod -aG docker ubuntu || echo "No se pudo agregar usuario a docker"
+    # Configure Docker (not critical)
+    systemctl enable docker || echo "Docker not available"
+    systemctl start docker || echo "Could not start Docker"
+    usermod -aG docker ubuntu || echo "Could not add user to docker"
     
-    echo "=== Configuración del bastión completada ==="
+    # Install Lacework agent (FortiCNP)
+    echo "Installing Lacework agent..."
+    mkdir -p /opt/lacework
+    
+    # Detect architecture
+    ARCH=$(uname -m)
+    case $ARCH in
+        x86_64) ARCH="amd64" ;;
+        aarch64|arm64) ARCH="arm64" ;;
+        *) ARCH="amd64" ;;
+    esac
+    
+    # Download Lacework agent
+    LACEWORK_URL="https://2068520.lacework.net/ui/investigation/settings/agents/download/linux/${ARCH}"
+    curl -L -f -o /opt/lacework/lacework-agent "$LACEWORK_URL" || \
+    wget -O /opt/lacework/lacework-agent "$LACEWORK_URL" || \
+    echo "Could not download agent automatically"
+    
+    # Give execution permissions
+    if [ -f /opt/lacework/lacework-agent ]; then
+        chmod +x /opt/lacework/lacework-agent
+        ln -sf /opt/lacework/lacework-agent /usr/local/bin/lacework-agent
+        
+        # Create systemd service
+        cat > /etc/systemd/system/lacework-agent.service <<'LACEWORK_SERVICE'
+[Unit]
+Description=Lacework Agent
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/lacework/lacework-agent
+Restart=always
+RestartSec=10
+User=root
+
+[Install]
+WantedBy=multi-user.target
+LACEWORK_SERVICE
+        
+        systemctl daemon-reload
+        systemctl enable lacework-agent
+        systemctl start lacework-agent || echo "Could not start agent"
+        echo "Lacework agent installed"
+    else
+        echo "WARNING: Lacework agent could not be installed automatically"
+        echo "Run manually: /home/ubuntu/scripts/install-lacework-agent-bastion.sh"
+    fi
+    
+    echo "=== Bastion configuration completed ==="
     date
-    echo "SSH debería estar escuchando en los puertos 22 y 22222"
+    echo "SSH should be listening on ports 22 and 22222"
   EOF
 
   tags = {

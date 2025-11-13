@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Script para desplegar imágenes vulnerables en el cluster EKS
+# Script to deploy vulnerable images to the EKS cluster
 
 set -e
 
-# Colores para output
+# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -23,17 +23,17 @@ if [ -z "$AWS_ACCOUNT_ID" ]; then
     AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 fi
 
-echo -e "${GREEN}Configurando kubectl para cluster: $CLUSTER_NAME${NC}"
+echo -e "${GREEN}Configuring kubectl for cluster: $CLUSTER_NAME${NC}"
 aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
 
-echo -e "${GREEN}Verificando conexión al cluster...${NC}"
+echo -e "${GREEN}Verifying cluster connection...${NC}"
 kubectl cluster-info
 
-# Crear namespace para aplicaciones vulnerables
-echo -e "${GREEN}Creando namespace para aplicaciones vulnerables...${NC}"
+# Create namespace for vulnerable applications
+echo -e "${GREEN}Creating namespace for vulnerable applications...${NC}"
 kubectl create namespace vulnerable-apps --dry-run=client -o yaml | kubectl apply -f -
 
-# Lista de aplicaciones a desplegar
+# List of applications to deploy
 declare -A APPS=(
     ["vulnerable-web-app"]="3000"
     ["vulnerable-api"]="5000"
@@ -45,9 +45,9 @@ for APP_NAME in "${!APPS[@]}"; do
     PORT="${APPS[$APP_NAME]}"
     ECR_IMAGE="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME:latest"
     
-    echo -e "\n${YELLOW}Desplegando: $APP_NAME${NC}"
+    echo -e "\n${YELLOW}Deploying: $APP_NAME${NC}"
     
-    # Crear deployment
+    # Create deployment
     cat <<EOF | kubectl apply -f -
 apiVersion: apps/v1
 kind: Deployment
@@ -78,11 +78,11 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
-        # Vulnerabilidad: Sin security context restrictivo
+        # Vulnerability: No restrictive security context
         securityContext:
           runAsUser: 0
           privileged: true
-        # Vulnerabilidad: Sin límites de recursos estrictos
+        # Vulnerability: No strict resource limits
 ---
 apiVersion: v1
 kind: Service
@@ -101,22 +101,21 @@ spec:
     app: $APP_NAME
 EOF
 
-    echo -e "${GREEN}✓ $APP_NAME desplegado${NC}"
+    echo -e "${GREEN}✓ $APP_NAME deployed${NC}"
 done
 
-echo -e "\n${GREEN}Esperando que los pods estén listos...${NC}"
+echo -e "\n${GREEN}Waiting for pods to be ready...${NC}"
 kubectl wait --for=condition=ready pod -l app -n vulnerable-apps --timeout=300s || true
 
-echo -e "\n${GREEN}Estado de los deployments:${NC}"
+echo -e "\n${GREEN}Deployment status:${NC}"
 kubectl get deployments -n vulnerable-apps
 
-echo -e "\n${GREEN}Estado de los pods:${NC}"
+echo -e "\n${GREEN}Pod status:${NC}"
 kubectl get pods -n vulnerable-apps
 
-echo -e "\n${GREEN}Estado de los services:${NC}"
+echo -e "\n${GREEN}Service status:${NC}"
 kubectl get services -n vulnerable-apps
 
-echo -e "\n${YELLOW}Para acceder a las aplicaciones desde el bastión:${NC}"
+echo -e "\n${YELLOW}To access applications from the bastion:${NC}"
 echo -e "${GREEN}kubectl port-forward -n vulnerable-apps svc/vulnerable-web-app 3000:3000${NC}"
 echo -e "${GREEN}kubectl port-forward -n vulnerable-apps svc/vulnerable-api 5000:5000${NC}"
-

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script para agregar el rol del bastión al ConfigMap aws-auth del cluster EKS
+# Script to add bastion role to EKS cluster aws-auth ConfigMap
 
 set -e
 
@@ -10,13 +10,13 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}=== Agregando Bastión al Cluster EKS ===${NC}\n"
+echo -e "${BLUE}=== Adding Bastion to EKS Cluster ===${NC}\n"
 
-# Obtener información de Terraform
-cd terraform 2>/dev/null || { echo "Error: Ejecuta este script desde el directorio raíz del proyecto"; exit 1; }
+# Get Terraform information
+cd terraform 2>/dev/null || { echo "Error: Run this script from the project root directory"; exit 1; }
 
 if [ ! -f "terraform.tfstate" ]; then
-    echo -e "${RED}No se encontró terraform.tfstate${NC}"
+    echo -e "${RED}terraform.tfstate not found${NC}"
     exit 1
 fi
 
@@ -25,64 +25,64 @@ CLUSTER_NAME=$(terraform output -raw eks_cluster_name 2>/dev/null || echo "lab-c
 BASTION_ROLE_ARN=$(terraform output -raw bastion_role_arn 2>/dev/null || echo "")
 
 if [ -z "$BASTION_ROLE_ARN" ]; then
-    # Intentar obtener el ARN del rol desde Terraform state
+    # Try to get role ARN from Terraform state
     BASTION_ROLE_ARN=$(terraform state show aws_iam_role.bastion 2>/dev/null | grep "arn:" | head -1 | awk '{print $3}' || echo "")
 fi
 
 if [ -z "$BASTION_ROLE_ARN" ]; then
-    echo -e "${RED}No se pudo obtener el ARN del rol del bastión${NC}"
-    echo -e "${YELLOW}Obteniendo desde AWS directamente...${NC}"
+    echo -e "${RED}Could not get bastion role ARN${NC}"
+    echo -e "${YELLOW}Getting from AWS directly...${NC}"
     BASTION_ROLE_ARN=$(aws iam get-role --role-name bastion-role --query 'Role.Arn' --output text 2>/dev/null || echo "")
 fi
 
 if [ -z "$BASTION_ROLE_ARN" ]; then
-    echo -e "${RED}No se pudo obtener el ARN del rol del bastión${NC}"
+    echo -e "${RED}Could not get bastion role ARN${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}Región: $AWS_REGION${NC}"
+echo -e "${GREEN}Region: $AWS_REGION${NC}"
 echo -e "${GREEN}Cluster: $CLUSTER_NAME${NC}"
 echo -e "${GREEN}Bastion Role ARN: $BASTION_ROLE_ARN${NC}"
 echo ""
 
-# Configurar kubectl
-echo -e "${YELLOW}[1] Configurando kubectl...${NC}"
+# Configure kubectl
+echo -e "${YELLOW}[1] Configuring kubectl...${NC}"
 aws eks update-kubeconfig --region "$AWS_REGION" --name "$CLUSTER_NAME" 2>/dev/null && \
-    echo -e "${GREEN}✓ kubectl configurado${NC}" || \
-    { echo -e "${RED}✗ Error configurando kubectl${NC}"; exit 1; }
+    echo -e "${GREEN}✓ kubectl configured${NC}" || \
+    { echo -e "${RED}✗ Error configuring kubectl${NC}"; exit 1; }
 
-# Verificar que el cluster está accesible
-echo -e "\n${YELLOW}[2] Verificando acceso al cluster...${NC}"
+# Verify cluster is accessible
+echo -e "\n${YELLOW}[2] Verifying cluster access...${NC}"
 kubectl cluster-info > /dev/null 2>&1 && \
-    echo -e "${GREEN}✓ Cluster accesible${NC}" || \
-    { echo -e "${RED}✗ No se puede acceder al cluster${NC}"; exit 1; }
+    echo -e "${GREEN}✓ Cluster accessible${NC}" || \
+    { echo -e "${RED}✗ Cannot access cluster${NC}"; exit 1; }
 
-# Obtener el ConfigMap aws-auth actual
-echo -e "\n${YELLOW}[3] Obteniendo ConfigMap aws-auth actual...${NC}"
+# Get current aws-auth ConfigMap
+echo -e "\n${YELLOW}[3] Getting current aws-auth ConfigMap...${NC}"
 kubectl get configmap aws-auth -n kube-system -o yaml > /tmp/aws-auth.yaml 2>/dev/null && \
-    echo -e "${GREEN}✓ ConfigMap obtenido${NC}" || \
-    { echo -e "${RED}✗ No se pudo obtener el ConfigMap${NC}"; exit 1; }
+    echo -e "${GREEN}✓ ConfigMap obtained${NC}" || \
+    { echo -e "${RED}✗ Could not get ConfigMap${NC}"; exit 1; }
 
-# Verificar si el rol ya está en el ConfigMap
+# Verify if role is already in ConfigMap
 if grep -q "$BASTION_ROLE_ARN" /tmp/aws-auth.yaml; then
-    echo -e "${YELLOW}⚠ El rol del bastión ya está en el ConfigMap${NC}"
+    echo -e "${YELLOW}⚠ Bastion role is already in ConfigMap${NC}"
     exit 0
 fi
 
-# Agregar el rol del bastión al ConfigMap
-echo -e "\n${YELLOW}[4] Agregando rol del bastión al ConfigMap...${NC}"
+# Add bastion role to ConfigMap
+echo -e "\n${YELLOW}[4] Adding bastion role to ConfigMap...${NC}"
 
-# Obtener el contenido actual del mapRoles
+# Get current mapRoles content
 CURRENT_MAPROLES=$(kubectl get configmap aws-auth -n kube-system -o jsonpath='{.data.mapRoles}' 2>/dev/null || echo "")
 
 if [ -z "$CURRENT_MAPROLES" ]; then
-    # Si no existe mapRoles, crear uno nuevo
+    # If mapRoles doesn't exist, create a new one
     NEW_MAPROLES="- rolearn: $BASTION_ROLE_ARN
   username: bastion-user
   groups:
     - system:masters"
 else
-    # Agregar el nuevo rol al mapRoles existente
+    # Add new role to existing mapRoles
     NEW_MAPROLES="$CURRENT_MAPROLES
 - rolearn: $BASTION_ROLE_ARN
   username: bastion-user
@@ -90,10 +90,10 @@ else
     - system:masters"
 fi
 
-# Obtener mapUsers si existe
+# Get mapUsers if exists
 CURRENT_MAPUSERS=$(kubectl get configmap aws-auth -n kube-system -o jsonpath='{.data.mapUsers}' 2>/dev/null || echo "")
 
-# Crear el patch
+# Create patch
 cat > /tmp/aws-auth-patch.yaml <<EOF
 data:
   mapRoles: |
@@ -105,10 +105,10 @@ if [ -n "$CURRENT_MAPUSERS" ]; then
     echo "$CURRENT_MAPUSERS" | sed 's/^/    /' >> /tmp/aws-auth-patch.yaml
 fi
 
-# Aplicar el patch
+# Apply patch
 kubectl patch configmap aws-auth -n kube-system --patch "$(cat /tmp/aws-auth-patch.yaml)" && \
-    echo -e "${GREEN}✓ Rol del bastión agregado al ConfigMap${NC}" || \
-    { echo -e "${RED}✗ Error agregando el rol. Intentando con kubectl apply...${NC}"; \
+    echo -e "${GREEN}✓ Bastion role added to ConfigMap${NC}" || \
+    { echo -e "${RED}✗ Error adding role. Trying with kubectl apply...${NC}"; \
       kubectl get configmap aws-auth -n kube-system -o yaml | \
         sed "/mapRoles: |/a\\
     - rolearn: $BASTION_ROLE_ARN\\
@@ -116,11 +116,11 @@ kubectl patch configmap aws-auth -n kube-system --patch "$(cat /tmp/aws-auth-pat
       groups:\\
         - system:masters" | \
         kubectl apply -f - && \
-        echo -e "${GREEN}✓ Rol agregado usando apply${NC}" || \
-        { echo -e "${RED}✗ Error. Por favor, agrega manualmente el rol al ConfigMap${NC}"; exit 1; } }
+        echo -e "${GREEN}✓ Role added using apply${NC}" || \
+        { echo -e "${RED}✗ Error. Please manually add role to ConfigMap${NC}"; exit 1; } }
 
-# Limpiar archivos temporales
+# Clean temporary files
 rm -f /tmp/aws-auth.yaml /tmp/aws-auth-patch.yaml
 
-echo -e "\n${GREEN}=== Bastión agregado al cluster EKS ===${NC}"
-echo -e "${YELLOW}Ahora puedes usar kubectl desde el bastión${NC}"
+echo -e "\n${GREEN}=== Bastion added to EKS cluster ===${NC}"
+echo -e "${YELLOW}You can now use kubectl from the bastion${NC}"

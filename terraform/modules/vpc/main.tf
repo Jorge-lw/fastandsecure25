@@ -57,7 +57,7 @@ resource "aws_subnet" "private" {
   )
 }
 
-# Elastic IPs for NAT Gateways (solo si están habilitados)
+# Elastic IPs for NAT Gateways (only if enabled)
 resource "aws_eip" "nat" {
   count = var.enable_nat_gateway ? var.nat_gateway_count : 0
 
@@ -73,7 +73,7 @@ resource "aws_eip" "nat" {
   depends_on = [aws_internet_gateway.main]
 }
 
-# NAT Gateways (solo si están habilitados)
+# NAT Gateways (only if enabled)
 resource "aws_nat_gateway" "main" {
   count = var.enable_nat_gateway ? var.nat_gateway_count : 0
 
@@ -121,7 +121,7 @@ resource "aws_route_table" "private" {
 
   vpc_id = aws_vpc.main.id
 
-  # Solo agregar ruta a NAT Gateway si está habilitado
+  # Only add route to NAT Gateway if enabled
   dynamic "route" {
     for_each = var.enable_nat_gateway ? [1] : []
     content {

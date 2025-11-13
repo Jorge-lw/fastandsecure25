@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# Script para configurar el bastión con las herramientas necesarias
+# Script to configure bastion with necessary tools
 
 set -e
 
-# Este script se ejecuta en el bastión después del despliegue
-# Se puede ejecutar manualmente o agregar al user_data
+# This script runs on the bastion after deployment
+# Can be run manually or added to user_data
 
-echo "Configurando bastión host..."
+echo "Configuring bastion host..."
 
-# Actualizar sistema
+# Update system
 sudo apt-get update -y
 
-# Instalar herramientas necesarias
+# Install necessary tools
 sudo apt-get install -y \
     curl \
     wget \
@@ -23,32 +23,31 @@ sudo apt-get install -y \
     jq \
     unzip
 
-# Configurar Docker
+# Configure Docker
 sudo systemctl start docker
 sudo systemctl enable docker
 sudo usermod -aG docker ubuntu
 
-# Instalar AWS CLI v2 si no está instalado
+# Install AWS CLI v2 if not installed
 if ! command -v aws &> /dev/null; then
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
     unzip awscliv2.zip
     sudo ./aws/install
 fi
 
-# Instalar kubectl si no está instalado
+# Install kubectl if not installed
 if ! command -v kubectl &> /dev/null; then
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
     sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 fi
 
-# Instalar eksctl
+# Install eksctl
 if ! command -v eksctl &> /dev/null; then
     curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
     sudo mv /tmp/eksctl /usr/local/bin
 fi
 
-# Configurar kubectl para el cluster (esto se hace después de crear el cluster)
+# Configure kubectl for cluster (this is done after creating the cluster)
 # aws eks update-kubeconfig --region <region> --name lab-cluster
 
-echo "✓ Bastión configurado correctamente"
-
+echo "✓ Bastion configured correctly"

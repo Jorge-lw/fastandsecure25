@@ -1,20 +1,19 @@
-# Base de datos con configuración insegura
-# Especificar plataforma para compatibilidad (EKS usa linux/amd64)
+# Database with insecure configuration
+# Specify platform for compatibility (EKS uses linux/amd64)
 FROM --platform=linux/amd64 mysql:5.7
 
-# Vulnerabilidad: Versión antigua de MySQL con CVE conocidos
-# Vulnerabilidad: Root password débil
+# Vulnerability: Old MySQL version with known CVEs
+# Vulnerability: Weak root password
 ENV MYSQL_ROOT_PASSWORD=root123
 ENV MYSQL_DATABASE=vulnerable_db
 ENV MYSQL_USER=admin
 ENV MYSQL_PASSWORD=admin123
 
-# Vulnerabilidad: Permitir conexiones remotas sin restricciones
+# Vulnerability: Allow remote connections without restrictions
 COPY my.cnf /etc/mysql/conf.d/my.cnf
 
-# Vulnerabilidad: Exponer puerto sin restricciones
+# Vulnerability: Expose port without restrictions
 EXPOSE 3306
 
-# Vulnerabilidad: Inicializar con datos de prueba inseguros
+# Vulnerability: Initialize with insecure test data
 COPY init.sql /docker-entrypoint-initdb.d/
-
