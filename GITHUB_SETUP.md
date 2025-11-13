@@ -1,155 +1,155 @@
-# Guía para Subir el Código a GitHub
+# Guide to Upload Code to GitHub
 
-## Pasos para Crear y Subir el Repositorio
+## Steps to Create and Upload the Repository
 
-### Opción 1: Usando el Script Automatizado
+### Option 1: Using the Automated Script
 
 ```bash
-# Ejecutar el script de configuración
+# Run the setup script
 chmod +x scripts/setup-github.sh
 ./scripts/setup-github.sh
 ```
 
-Luego sigue las instrucciones que aparecen en pantalla.
+Then follow the on-screen instructions.
 
-### Opción 2: Pasos Manuales
+### Option 2: Manual Steps
 
-#### 1. Inicializar Git (si no está inicializado)
+#### 1. Initialize Git (if not initialized)
 
 ```bash
 git init
 ```
 
-#### 2. Verificar .gitignore
+#### 2. Verify .gitignore
 
-El archivo `.gitignore` ya está configurado para excluir:
-- Archivos de Terraform (estado, variables sensibles)
-- Claves SSH
-- Configuraciones de AWS/Kubernetes
-- Archivos temporales
+The `.gitignore` file is already configured to exclude:
+- Terraform files (state, sensitive variables)
+- SSH keys
+- AWS/Kubernetes configurations
+- Temporary files
 
-#### 3. Agregar archivos y hacer commit
+#### 3. Add files and commit
 
 ```bash
-# Agregar todos los archivos
+# Add all files
 git add .
 
-# Verificar qué se va a commitear (opcional)
+# Verify what will be committed (optional)
 git status
 
-# Crear commit inicial
-git commit -m "Initial commit: Infraestructura de laboratorio de seguridad"
+# Create initial commit
+git commit -m "Initial commit: Security lab infrastructure"
 ```
 
-#### 4. Crear Repositorio en GitHub
+#### 4. Create Repository on GitHub
 
-1. Ve a [https://github.com/new](https://github.com/new)
-2. **Nombre del repositorio**: `fastandsecure25` (o el que prefieras)
-3. **Descripción**: `Infraestructura de laboratorio de seguridad con Terraform, AWS EKS y aplicaciones vulnerables`
-4. **Visibilidad**: 
-   - `Private` - Si quieres mantenerlo privado
-   - `Public` - Si quieres compartirlo (recomendado para proyectos educativos)
-5. **IMPORTANTE**: NO marques las opciones de:
+1. Go to [https://github.com/new](https://github.com/new)
+2. **Repository name**: `fastandsecure25` (or your preferred name)
+3. **Description**: `Security lab infrastructure with Terraform, AWS EKS and vulnerable applications`
+4. **Visibility**: 
+   - `Private` - If you want to keep it private
+   - `Public` - If you want to share it (recommended for educational projects)
+5. **IMPORTANT**: DO NOT check the options for:
    - ❌ Add a README file
    - ❌ Add .gitignore
    - ❌ Choose a license
    
-   (Ya tenemos estos archivos en el proyecto)
+   (We already have these files in the project)
 
-6. Click en **"Create repository"**
+6. Click **"Create repository"**
 
-#### 5. Conectar Repositorio Local con GitHub
+#### 5. Connect Local Repository with GitHub
 
 ```bash
-# Reemplaza TU_USUARIO con tu usuario de GitHub
-git remote add origin https://github.com/TU_USUARIO/fastandsecure25.git
+# Replace YOUR_USERNAME with your GitHub username
+git remote add origin https://github.com/YOUR_USERNAME/fastandsecure25.git
 
-# Verificar que se agregó correctamente
+# Verify it was added correctly
 git remote -v
 ```
 
-#### 6. Renombrar Branch Principal (si es necesario)
+#### 6. Rename Main Branch (if necessary)
 
 ```bash
 git branch -M main
 ```
 
-#### 7. Subir el Código
+#### 7. Upload Code
 
 ```bash
-# Primera vez (establece upstream)
+# First time (sets upstream)
 git push -u origin main
 
-# En el futuro, solo necesitas:
+# In the future, you only need:
 git push
 ```
 
-## Comandos Completos (Copy-Paste)
+## Complete Commands (Copy-Paste)
 
 ```bash
-# 1. Inicializar git
+# 1. Initialize git
 git init
 
-# 2. Agregar archivos
+# 2. Add files
 git add .
 
-# 3. Commit inicial
-git commit -m "Initial commit: Infraestructura de laboratorio de seguridad"
+# 3. Initial commit
+git commit -m "Initial commit: Security lab infrastructure"
 
-# 4. Agregar remote (REEMPLAZA TU_USUARIO)
-git remote add origin https://github.com/TU_USUARIO/fastandsecure25.git
+# 4. Add remote (REPLACE YOUR_USERNAME)
+git remote add origin https://github.com/YOUR_USERNAME/fastandsecure25.git
 
-# 5. Renombrar branch
+# 5. Rename branch
 git branch -M main
 
-# 6. Subir código
+# 6. Upload code
 git push -u origin main
 ```
 
-## Verificación
+## Verification
 
-Después de hacer push, verifica en GitHub:
-- ✅ Todos los archivos están presentes
-- ✅ El README.md se muestra correctamente
-- ✅ La estructura de directorios es correcta
+After pushing, verify on GitHub:
+- ✅ All files are present
+- ✅ README.md displays correctly
+- ✅ Directory structure is correct
 
-## Configuración Adicional (Opcional)
+## Additional Configuration (Optional)
 
-### Configurar Git (si es la primera vez)
+### Configure Git (if first time)
 
 ```bash
-git config --global user.name "Tu Nombre"
-git config --global user.email "tu.email@example.com"
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
 ```
 
-### Usar SSH en lugar de HTTPS
+### Use SSH instead of HTTPS
 
-Si prefieres usar SSH:
+If you prefer to use SSH:
 
 ```bash
-# Generar clave SSH (si no tienes una)
-ssh-keygen -t ed25519 -C "tu.email@example.com"
+# Generate SSH key (if you don't have one)
+ssh-keygen -t ed25519 -C "your.email@example.com"
 
-# Agregar clave a ssh-agent
+# Add key to ssh-agent
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_ed25519
 
-# Copiar clave pública
+# Copy public key
 cat ~/.ssh/id_ed25519.pub
-# Pegar en GitHub: Settings > SSH and GPG keys > New SSH key
+# Paste in GitHub: Settings > SSH and GPG keys > New SSH key
 
-# Usar SSH URL en lugar de HTTPS
-git remote set-url origin git@github.com:TU_USUARIO/fastandsecure25.git
+# Use SSH URL instead of HTTPS
+git remote set-url origin git@github.com:YOUR_USERNAME/fastandsecure25.git
 ```
 
-### Agregar Descripción al Repositorio
+### Add Repository Description
 
-En GitHub, puedes agregar:
+On GitHub, you can add:
 - **Topics**: `terraform`, `kubernetes`, `aws`, `security`, `vulnerable-apps`, `eks`, `docker`
-- **Website**: (opcional) Si tienes documentación online
-- **Description**: Infraestructura de laboratorio de seguridad con Terraform y Kubernetes
+- **Website**: (optional) If you have online documentation
+- **Description**: Security lab infrastructure with Terraform and Kubernetes
 
-## Estructura que se Subirá
+## Structure to be Uploaded
 
 ```
 fastandsecure25/
@@ -183,32 +183,31 @@ fastandsecure25/
 
 ### Error: "remote origin already exists"
 ```bash
-# Ver remotes actuales
+# View current remotes
 git remote -v
 
-# Eliminar y volver a agregar
+# Remove and add again
 git remote remove origin
-git remote add origin https://github.com/TU_USUARIO/fastandsecure25.git
+git remote add origin https://github.com/YOUR_USERNAME/fastandsecure25.git
 ```
 
 ### Error: "failed to push some refs"
 ```bash
-# Si el repositorio de GitHub tiene contenido inicial
+# If GitHub repository has initial content
 git pull origin main --allow-unrelated-histories
 git push -u origin main
 ```
 
-### Error de autenticación
+### Authentication error
 ```bash
-# GitHub ya no acepta contraseñas, usa Personal Access Token
-# Crear token en: GitHub > Settings > Developer settings > Personal access tokens
-# Usar el token como contraseña cuando git lo pida
+# GitHub no longer accepts passwords, use Personal Access Token
+# Create token at: GitHub > Settings > Developer settings > Personal access tokens
+# Use the token as password when git asks for it
 ```
 
-## Próximos Pasos Después de Subir
+## Next Steps After Uploading
 
-1. ✅ Agregar badges al README (opcional)
-2. ✅ Configurar GitHub Actions para CI/CD (opcional)
-3. ✅ Agregar Issues templates (opcional)
-4. ✅ Configurar branch protection (si es necesario)
-
+1. ✅ Add badges to README (optional)
+2. ✅ Configure GitHub Actions for CI/CD (optional)
+3. ✅ Add Issues templates (optional)
+4. ✅ Configure branch protection (if necessary)

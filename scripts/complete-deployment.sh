@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Script completo para construir, subir y desplegar todas las imágenes
+# Complete script to build, push and deploy all images
 
 set -e
 
-# Colores
+# Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
@@ -14,14 +14,14 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$PROJECT_ROOT"
 
-echo -e "${GREEN}=== Despliegue Completo de Infraestructura Vulnerable ===${NC}\n"
+echo -e "${GREEN}=== Complete Deployment of Vulnerable Infrastructure ===${NC}\n"
 
-# Paso 1: Obtener outputs de Terraform
-echo -e "${YELLOW}Paso 1: Obteniendo información de Terraform...${NC}"
+# Step 1: Get Terraform outputs
+echo -e "${YELLOW}Step 1: Getting Terraform information...${NC}"
 cd terraform
 
 if [ ! -f "terraform.tfstate" ]; then
-    echo "Error: Terraform no ha sido aplicado. Ejecuta 'terraform apply' primero."
+    echo "Error: Terraform has not been applied. Run 'terraform apply' first."
     exit 1
 fi
 
@@ -34,28 +34,32 @@ export AWS_REGION
 export AWS_ACCOUNT_ID
 export CLUSTER_NAME
 
-echo -e "${GREEN}✓ Región: $AWS_REGION${NC}"
+echo -e "${GREEN}✓ Region: $AWS_REGION${NC}"
 echo -e "${GREEN}✓ Account ID: $AWS_ACCOUNT_ID${NC}"
 echo -e "${GREEN}✓ Cluster: $CLUSTER_NAME${NC}"
-echo -e "${GREEN}✓ Bastión IP: $BASTION_IP${NC}"
+echo -e "${GREEN}✓ Bastion IP: $BASTION_IP${NC}"
 
 cd "$PROJECT_ROOT"
 
-# Paso 2: Construir y subir imágenes
-echo -e "\n${YELLOW}Paso 2: Construyendo y subiendo imágenes a ECR...${NC}"
+# Step 2: Build and push images
+echo -e "\n${YELLOW}Step 2: Building and pushing images to ECR...${NC}"
 chmod +x scripts/build-and-push-images.sh
 ./scripts/build-and-push-images.sh
 
-# Paso 3: Desplegar en el cluster
-echo -e "\n${YELLOW}Paso 3: Desplegando aplicaciones en el cluster...${NC}"
+# Step 3: Deploy to cluster
+echo -e "\n${YELLOW}Step 3: Deploying applications to cluster...${NC}"
 chmod +x scripts/deploy-to-cluster.sh
-/opt/homebrew/bin/bash ./scripts/deploy-to-cluster.sh
+./scripts/deploy-to-cluster.sh
 
-echo -e "\n${GREEN}=== Despliegue Completado ===${NC}"
-echo -e "${YELLOW}Para conectarte al bastión:${NC}"
-echo -e "ssh -p 22222 -i <tu-clave> ubuntu@$BASTION_IP"
-echo -e "\n${YELLOW}Desde el bastión, puedes:${NC}"
-echo -e "1. Configurar kubectl: aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME"
-echo -e "2. Ver pods: kubectl get pods -n vulnerable-apps"
+# Step 4: Deploy Lacework agent in Kubernetes
+echo -e "\n${YELLOW}Step 4: Deploying Lacework agent in Kubernetes...${NC}"
+chmod +x scripts/deploy-lacework-agent-k8s.sh
+./scripts/deploy-lacework-agent-k8s.sh || echo -e "${YELLOW}⚠ Error deploying Lacework (may require manual configuration)${NC}"
+
+echo -e "\n${GREEN}=== Deployment Completed ===${NC}"
+echo -e "${YELLOW}To connect to the bastion:${NC}"
+echo -e "ssh -p 22222 -i <your-key> ubuntu@$BASTION_IP"
+echo -e "\n${YELLOW}From the bastion, you can:${NC}"
+echo -e "1. Configure kubectl: aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME"
+echo -e "2. View pods: kubectl get pods -n vulnerable-apps"
 echo -e "3. Port-forward: kubectl port-forward -n vulnerable-apps svc/vulnerable-web-app 3000:3000"
-

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script para limpiar repositorios ECR antes de hacer terraform destroy
+# Script to clean ECR repositories before running terraform destroy
 
 set -e
 
@@ -9,13 +9,13 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-echo -e "${YELLOW}Limpiando repositorios ECR...${NC}"
+echo -e "${YELLOW}Cleaning ECR repositories...${NC}"
 
-# Obtener información de Terraform
-cd terraform 2>/dev/null || { echo "Error: Ejecuta este script desde el directorio raíz del proyecto"; exit 1; }
+# Get Terraform information
+cd terraform 2>/dev/null || { echo "Error: Run this script from the project root directory"; exit 1; }
 
 if [ ! -f "terraform.tfstate" ]; then
-    echo -e "${RED}No se encontró terraform.tfstate. Los repositorios pueden no existir.${NC}"
+    echo -e "${RED}terraform.tfstate not found. Repositories may not exist.${NC}"
     exit 0
 fi
 
@@ -27,14 +27,14 @@ if [ -z "$AWS_ACCOUNT_ID" ]; then
 fi
 
 if [ -z "$AWS_ACCOUNT_ID" ]; then
-    echo -e "${RED}No se pudo obtener el AWS Account ID${NC}"
+    echo -e "${RED}Could not get AWS Account ID${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}Región: $AWS_REGION${NC}"
+echo -e "${GREEN}Region: $AWS_REGION${NC}"
 echo -e "${GREEN}Account ID: $AWS_ACCOUNT_ID${NC}"
 
-# Lista de repositorios (puedes obtenerlos de terraform output o hardcodearlos)
+# List of repositories (can get from terraform output or hardcode)
 REPOS=(
     "vulnerable-web-app"
     "vulnerable-api"
@@ -43,11 +43,11 @@ REPOS=(
 )
 
 for REPO in "${REPOS[@]}"; do
-    echo -e "\n${YELLOW}Procesando repositorio: $REPO${NC}"
+    echo -e "\n${YELLOW}Processing repository: $REPO${NC}"
     
-    # Verificar si el repositorio existe
+    # Check if repository exists
     if aws ecr describe-repositories --repository-names "$REPO" --region "$AWS_REGION" &>/dev/null; then
-        # Obtener todas las imágenes
+        # Get all images
         IMAGE_COUNT=$(aws ecr list-images \
             --repository-name "$REPO" \
             --region "$AWS_REGION" \
@@ -55,9 +55,9 @@ for REPO in "${REPOS[@]}"; do
             --output text 2>/dev/null || echo "0")
         
         if [ "$IMAGE_COUNT" -gt 0 ]; then
-            echo -e "${YELLOW}Eliminando $IMAGE_COUNT imagen(es) de $REPO...${NC}"
+            echo -e "${YELLOW}Deleting $IMAGE_COUNT image(s) from $REPO...${NC}"
             
-            # Obtener todas las imágenes y eliminarlas
+            # Get all images and delete them
             IMAGES_JSON=$(aws ecr list-images \
                 --repository-name "$REPO" \
                 --region "$AWS_REGION" \
@@ -65,14 +65,14 @@ for REPO in "${REPOS[@]}"; do
                 --output json 2>/dev/null || echo "[]")
             
             if [ "$IMAGES_JSON" != "[]" ] && [ -n "$IMAGES_JSON" ]; then
-                # Eliminar usando batch-delete-image
+                # Delete using batch-delete-image
                 echo "$IMAGES_JSON" | aws ecr batch-delete-image \
                     --repository-name "$REPO" \
                     --region "$AWS_REGION" \
                     --image-ids file:///dev/stdin \
                     2>&1 | grep -v "does not exist" || true
                 
-                # Verificar que se eliminaron
+                # Verify deletion
                 sleep 2
                 REMAINING=$(aws ecr list-images \
                     --repository-name "$REPO" \
@@ -81,26 +81,25 @@ for REPO in "${REPOS[@]}"; do
                     --output text 2>/dev/null || echo "0")
                 
                 if [ "$REMAINING" -eq "0" ]; then
-                    echo -e "${GREEN}✓ Todas las imágenes eliminadas de $REPO${NC}"
+                    echo -e "${GREEN}✓ All images deleted from $REPO${NC}"
                 else
-                    echo -e "${YELLOW}⚠ Quedan $REMAINING imagen(es) en $REPO${NC}"
-                    # Intentar eliminar el repositorio completo con force
-                    echo -e "${YELLOW}Intentando eliminar repositorio con force...${NC}"
+                    echo -e "${YELLOW}⚠ $REMAINING image(s) remaining in $REPO${NC}"
+                    # Try to delete repository completely with force
+                    echo -e "${YELLOW}Attempting to delete repository with force...${NC}"
                     aws ecr delete-repository \
                         --repository-name "$REPO" \
                         --region "$AWS_REGION" \
                         --force \
-                        2>&1 || echo -e "${RED}No se pudo eliminar $REPO${NC}"
+                        2>&1 || echo -e "${RED}Could not delete $REPO${NC}"
                 fi
             fi
         else
-            echo -e "${GREEN}✓ $REPO ya está vacío${NC}"
+            echo -e "${GREEN}✓ $REPO is already empty${NC}"
         fi
     else
-        echo -e "${YELLOW}⚠ $REPO no existe${NC}"
+        echo -e "${YELLOW}⚠ $REPO does not exist${NC}"
     fi
 done
 
-echo -e "\n${GREEN}✓ Limpieza de ECR completada${NC}"
-echo -e "${YELLOW}Ahora puedes ejecutar: terraform destroy${NC}"
-
+echo -e "\n${GREEN}✓ ECR cleanup completed${NC}"
+echo -e "${YELLOW}You can now run: terraform destroy${NC}"

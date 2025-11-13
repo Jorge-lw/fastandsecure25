@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script para inicializar git y preparar el repositorio para GitHub
+# Script to initialize git and prepare repository for GitHub
 
 set -e
 
@@ -10,78 +10,77 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}=== Configuración de Git para GitHub ===${NC}\n"
+echo -e "${BLUE}=== Git Configuration for GitHub ===${NC}\n"
 
-# Verificar si git está instalado
+# Verify git is installed
 if ! command -v git &> /dev/null; then
-    echo -e "${RED}Error: git no está instalado${NC}"
+    echo -e "${RED}Error: git is not installed${NC}"
     exit 1
 fi
 
-# Verificar si ya hay un repositorio git
+# Check if git repository already exists
 if [ -d ".git" ]; then
-    echo -e "${YELLOW}Ya existe un repositorio git${NC}"
-    read -p "¿Continuar de todos modos? (y/n): " -n 1 -r
+    echo -e "${YELLOW}Git repository already exists${NC}"
+    read -p "Continue anyway? (y/n): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         exit 1
     fi
 fi
 
-# Inicializar repositorio git si no existe
+# Initialize git repository if it doesn't exist
 if [ ! -d ".git" ]; then
-    echo -e "${YELLOW}[1] Inicializando repositorio git...${NC}"
+    echo -e "${YELLOW}[1] Initializing git repository...${NC}"
     git init
-    echo -e "${GREEN}✓ Repositorio inicializado${NC}"
+    echo -e "${GREEN}✓ Repository initialized${NC}"
 fi
 
-# Verificar .gitignore
+# Check .gitignore
 if [ ! -f ".gitignore" ]; then
-    echo -e "${YELLOW}[2] Creando .gitignore...${NC}"
-    # El .gitignore ya debería existir, pero por si acaso
-    echo -e "${RED}⚠ .gitignore no encontrado${NC}"
+    echo -e "${YELLOW}[2] Creating .gitignore...${NC}"
+    # .gitignore should already exist, but just in case
+    echo -e "${RED}⚠ .gitignore not found${NC}"
 else
-    echo -e "${GREEN}✓ .gitignore encontrado${NC}"
+    echo -e "${GREEN}✓ .gitignore found${NC}"
 fi
 
-# Agregar todos los archivos
-echo -e "\n${YELLOW}[3] Agregando archivos al staging...${NC}"
+# Add all files
+echo -e "\n${YELLOW}[3] Adding files to staging...${NC}"
 git add .
 
-# Verificar si hay cambios
+# Check if there are changes
 if git diff --cached --quiet; then
-    echo -e "${YELLOW}⚠ No hay cambios para commitear${NC}"
+    echo -e "${YELLOW}⚠ No changes to commit${NC}"
 else
-    echo -e "${GREEN}✓ Archivos agregados${NC}"
+    echo -e "${GREEN}✓ Files added${NC}"
     
-    # Hacer commit inicial
-    echo -e "\n${YELLOW}[4] Creando commit inicial...${NC}"
-    read -p "Mensaje del commit (default: 'Initial commit'): " COMMIT_MSG
+    # Create initial commit
+    echo -e "\n${YELLOW}[4] Creating initial commit...${NC}"
+    read -p "Commit message (default: 'Initial commit'): " COMMIT_MSG
     COMMIT_MSG=${COMMIT_MSG:-"Initial commit"}
     
     git commit -m "$COMMIT_MSG"
-    echo -e "${GREEN}✓ Commit creado${NC}"
+    echo -e "${GREEN}✓ Commit created${NC}"
 fi
 
-# Información sobre el siguiente paso
-echo -e "\n${BLUE}=== Próximos Pasos ===${NC}"
-echo -e "${YELLOW}1. Crea un repositorio en GitHub:${NC}"
-echo -e "   - Ve a https://github.com/new"
-echo -e "   - Nombre del repositorio: fastandsecure25 (o el que prefieras)"
-echo -e "   - Descripción: Infraestructura de laboratorio de seguridad con Terraform y Kubernetes"
-echo -e "   - Visibilidad: Private o Public (según prefieras)"
-echo -e "   - ${RED}NO${NC} inicialices con README, .gitignore o licencia"
+# Information about next steps
+echo -e "\n${BLUE}=== Next Steps ===${NC}"
+echo -e "${YELLOW}1. Create a repository on GitHub:${NC}"
+echo -e "   - Go to https://github.com/new"
+echo -e "   - Repository name: fastandsecure25 (or your preferred name)"
+echo -e "   - Description: Security lab infrastructure with Terraform and Kubernetes"
+echo -e "   - Visibility: Private or Public (as you prefer)"
+echo -e "   - ${RED}DO NOT${NC} initialize with README, .gitignore or license"
 echo ""
-echo -e "${YELLOW}2. Conecta el repositorio local con GitHub:${NC}"
-echo -e "   ${GREEN}git remote add origin https://github.com/TU_USUARIO/fastandsecure25.git${NC}"
-echo -e "   (Reemplaza TU_USUARIO con tu usuario de GitHub)"
+echo -e "${YELLOW}2. Connect local repository with GitHub:${NC}"
+echo -e "   ${GREEN}git remote add origin https://github.com/YOUR_USERNAME/fastandsecure25.git${NC}"
+echo -e "   (Replace YOUR_USERNAME with your GitHub username)"
 echo ""
-echo -e "${YELLOW}3. Sube el código:${NC}"
+echo -e "${YELLOW}3. Push code:${NC}"
 echo -e "   ${GREEN}git branch -M main${NC}"
 echo -e "   ${GREEN}git push -u origin main${NC}"
 echo ""
-echo -e "${BLUE}O ejecuta estos comandos después de crear el repo:${NC}"
-echo -e "${GREEN}git remote add origin https://github.com/TU_USUARIO/fastandsecure25.git${NC}"
+echo -e "${BLUE}Or run these commands after creating the repo:${NC}"
+echo -e "${GREEN}git remote add origin https://github.com/YOUR_USERNAME/fastandsecure25.git${NC}"
 echo -e "${GREEN}git branch -M main${NC}"
 echo -e "${GREEN}git push -u origin main${NC}"
-

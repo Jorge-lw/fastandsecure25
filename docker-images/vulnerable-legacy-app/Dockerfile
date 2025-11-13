@@ -1,28 +1,28 @@
-# Aplicación legacy con múltiples vulnerabilidades
-# Especificar plataforma para compatibilidad (EKS usa linux/amd64)
+# Legacy application with multiple vulnerabilities
+# Specify platform for compatibility (EKS uses linux/amd64)
 FROM --platform=linux/amd64 tomcat:8.5-jre8-alpine
 
-# Vulnerabilidad: Versión antigua de Tomcat con CVE conocidos
-# Vulnerabilidad: Ejecutar como root
+# Vulnerability: Old Tomcat version with known CVEs
+# Vulnerability: Run as root
 USER root
 
-# Vulnerabilidad: Deshabilitar verificaciones de seguridad
+# Vulnerability: Disable security checks
 ENV CATALINA_OPTS="-Djava.security.manager= -Djava.security.policy=all.policy"
 
 WORKDIR /usr/local/tomcat
 
-# Vulnerabilidad: Aplicación web vulnerable (placeholder)
-# En producción sería un WAR real, aquí usamos un HTML simple
+# Vulnerability: Vulnerable web application (placeholder)
+# In production it would be a real WAR, here we use simple HTML
 RUN mkdir -p webapps/ROOT
 COPY index.html webapps/ROOT/
 
-# Vulnerabilidad: Configuración insegura
+# Vulnerability: Insecure configuration
 COPY server.xml conf/server.xml
 
-# Vulnerabilidad: Exponer puerto
+# Vulnerability: Expose port
 EXPOSE 8080
 
-# Vulnerabilidad: Ejecutar con permisos elevados
+# Vulnerability: Run with elevated permissions
 RUN chmod -R 777 /usr/local/tomcat
 
 CMD ["catalina.sh", "run"]

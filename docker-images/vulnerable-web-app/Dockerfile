@@ -1,37 +1,36 @@
-# Imagen con múltiples vulnerabilidades conocidas
-# Especificar plataforma para compatibilidad (EKS usa linux/amd64)
+# Image with multiple known vulnerabilities
+# Specify platform for compatibility (EKS uses linux/amd64)
 FROM --platform=linux/amd64 node:14-alpine
 
-# Vulnerabilidad: Versión antigua de Node.js con CVE conocidos
-# Vulnerabilidad: Usuario root
+# Vulnerability: Old Node.js version with known CVEs
+# Vulnerability: Root user
 USER root
 
-# Vulnerabilidad: Exponer credenciales hardcodeadas
+# Vulnerability: Expose hardcoded credentials
 ENV DB_PASSWORD=admin123
 ENV API_KEY=sk_live_1234567890abcdef
 ENV SECRET_TOKEN=super_secret_token_12345
 
-# Vulnerabilidad: Instalar paquetes sin verificar checksums
+# Vulnerability: Install packages without verifying checksums
 RUN apk add --no-cache curl wget
 
-# Vulnerabilidad: Copiar archivos sensibles
+# Vulnerability: Copy sensitive files
 COPY secrets.txt /app/secrets.txt
 
-# Vulnerabilidad: Permisos demasiado permisivos
+# Vulnerability: Overly permissive permissions
 RUN chmod 777 /app
 
 WORKDIR /app
 
-# Vulnerabilidad: Versión vulnerable de express
+# Vulnerability: Vulnerable express version
 RUN npm install express@4.16.0 --no-audit
 
-# Vulnerabilidad: Ejecutar como root
+# Vulnerability: Run as root
 COPY app.js .
 COPY package.json .
 
-# Vulnerabilidad: Exponer puerto sin restricciones
+# Vulnerability: Expose port without restrictions
 EXPOSE 3000
 
-# Vulnerabilidad: Comando inseguro
+# Vulnerability: Insecure command
 CMD ["node", "app.js"]
-

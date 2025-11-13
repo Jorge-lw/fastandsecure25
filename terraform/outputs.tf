@@ -47,7 +47,7 @@ output "aws_region" {
 }
 
 output "bastion_role_arn" {
-  description = "ARN del rol IAM del bastión"
+  description = "ARN of the bastion IAM role"
   value       = aws_iam_role.bastion.arn
 }
 

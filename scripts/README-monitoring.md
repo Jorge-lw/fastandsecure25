@@ -1,170 +1,169 @@
-# Scripts de Monitoreo y Configuración
+# Monitoring and Configuration Scripts
 
 ## fix-kubectl-config.sh
 
-Script para arreglar problemas de configuración de kubectl, especialmente el error:
+Script to fix kubectl configuration issues, especially the error:
 ```
 error: exec plugin: invalid apiVersion "client.authentication.k8s.io/v1alpha1"
 ```
 
-**Uso:**
+**Usage:**
 ```bash
 ./scripts/fix-kubectl-config.sh
 ```
 
-Este script:
-- Actualiza la configuración de kubectl
-- Reemplaza versiones antiguas de la API (v1alpha1) con v1beta1
-- Verifica que el acceso al cluster funcione
+This script:
+- Updates kubectl configuration
+- Replaces old API versions (v1alpha1) with v1beta1
+- Verifies cluster access works
 
 ## monitor-containers.sh
 
-Script para monitorear y hacer peticiones periódicas a los contenedores vulnerables en el cluster Kubernetes.
+Script to monitor and make periodic requests to vulnerable containers in the Kubernetes cluster.
 
-### Características
+### Features
 
-- ✅ Ejecuta en background
-- ✅ Hace peticiones periódicas a todos los servicios vulnerables
-- ✅ Gestiona port-forwards automáticamente
-- ✅ Genera logs detallados
-- ✅ Maneja errores y reconexiones
-- ✅ Fácil de iniciar/detener/verificar
+- ✅ Runs in background
+- ✅ Makes periodic requests to all vulnerable services
+- ✅ Manages port-forwards automatically
+- ✅ Generates detailed logs
+- ✅ Handles errors and reconnections
+- ✅ Easy to start/stop/check
 
-### Uso Básico
+### Basic Usage
 
 ```bash
-# Iniciar monitoreo (en background)
+# Start monitoring (in background)
 ./scripts/monitor-containers.sh start
 
-# Ver estado
+# Check status
 ./scripts/monitor-containers.sh status
 
-# Ver logs en tiempo real
+# View logs in real time
 ./scripts/monitor-containers.sh logs
 
-# Detener monitoreo
+# Stop monitoring
 ./scripts/monitor-containers.sh stop
 ```
 
-### Configuración con Variables de Entorno
+### Configuration with Environment Variables
 
 ```bash
-# Cambiar intervalo (default: 30 segundos)
+# Change interval (default: 30 seconds)
 INTERVAL=60 ./scripts/monitor-containers.sh start
 
-# Cambiar namespace
-NAMESPACE=otro-namespace ./scripts/monitor-containers.sh start
+# Change namespace
+NAMESPACE=other-namespace ./scripts/monitor-containers.sh start
 
-# Cambiar archivo de log
+# Change log file
 LOG_FILE=/var/log/monitor.log ./scripts/monitor-containers.sh start
 ```
 
-### Servicios Monitoreados
+### Monitored Services
 
-El script monitorea automáticamente:
+The script automatically monitors:
 
-1. **vulnerable-web-app** (puerto 3000)
-   - `/debug` - Información de debug
-   - `/search?q=test` - Búsqueda
+1. **vulnerable-web-app** (port 3000)
+   - `/debug` - Debug information
+   - `/search?q=test` - Search
 
-2. **vulnerable-api** (puerto 5000)
-   - `/env` - Variables de entorno
+2. **vulnerable-api** (port 5000)
+   - `/env` - Environment variables
    - `/ping?host=localhost` - Ping
 
-3. **vulnerable-database** (puerto 3306)
-   - Conexión MySQL con credenciales por defecto
+3. **vulnerable-database** (port 3306)
+   - MySQL connection with default credentials
 
-4. **vulnerable-legacy-app** (puerto 8080)
-   - Petición GET a la raíz
+4. **vulnerable-legacy-app** (port 8080)
+   - GET request to root
 
-### Ejemplo Completo
+### Complete Example
 
 ```bash
-# 1. Conectarse al bastión
+# 1. Connect to bastion
 ssh -p 22222 -i ~/.ssh/bastion_key ubuntu@<BASTION_IP>
 
-# 2. Configurar kubectl (si es necesario)
+# 2. Configure kubectl (if necessary)
 export AWS_REGION=eu-central-1
 export CLUSTER_NAME=lab-cluster
 ./scripts/fix-kubectl-config.sh
 
-# 3. Verificar acceso
+# 3. Verify access
 kubectl get pods -n vulnerable-apps
 
-# 4. Iniciar monitoreo
-cd ~/scripts  # o donde estén los scripts
+# 4. Start monitoring
+cd ~/scripts  # or wherever scripts are
 ./monitor-containers.sh start
 
-# 5. Ver logs
+# 5. View logs
 ./monitor-containers.sh logs
 
-# 6. Verificar estado
+# 6. Check status
 ./monitor-containers.sh status
 
-# 7. Detener cuando termines
+# 7. Stop when done
 ./monitor-containers.sh stop
 ```
 
-### Archivos Generados
+### Generated Files
 
-- `/tmp/container-monitor.log` - Log principal
-- `/tmp/container-monitor.pid` - PID del proceso
-- `/tmp/pf-*.pid` - PIDs de los port-forwards
+- `/tmp/container-monitor.log` - Main log
+- `/tmp/container-monitor.pid` - Process PID
+- `/tmp/pf-*.pid` - Port-forward PIDs
 
 ### Troubleshooting
 
-**Error: kubectl no está configurado**
+**Error: kubectl is not configured**
 ```bash
 ./scripts/fix-kubectl-config.sh
 ```
 
-**Error: Namespace no existe**
+**Error: Namespace does not exist**
 ```bash
-# Verificar namespace
+# Verify namespace
 kubectl get namespaces
 
-# Crear si es necesario
+# Create if necessary
 kubectl create namespace vulnerable-apps
 ```
 
-**Los port-forwards no funcionan**
+**Port-forwards not working**
 ```bash
-# Verificar que los servicios existen
+# Verify services exist
 kubectl get services -n vulnerable-apps
 
-# Verificar que los pods están running
+# Verify pods are running
 kubectl get pods -n vulnerable-apps
 ```
 
-**El script se detiene**
+**Script stops**
 ```bash
-# Ver logs para diagnóstico
+# View logs for diagnosis
 tail -100 /tmp/container-monitor.log
 
-# Reiniciar
+# Restart
 ./scripts/monitor-containers.sh stop
 ./scripts/monitor-containers.sh start
 ```
 
-### Personalización
+### Customization
 
-Puedes modificar el script para:
-- Agregar más endpoints a monitorear
-- Cambiar los tipos de peticiones
-- Agregar más verificaciones
-- Integrar con sistemas de alertas
+You can modify the script to:
+- Add more endpoints to monitor
+- Change request types
+- Add more checks
+- Integrate with alerting systems
 
-### Ejemplo de Salida del Log
+### Example Log Output
 
 ```
-[2024-01-15 10:30:00] === Iniciando monitoreo de contenedores ===
+[2024-01-15 10:30:00] === Starting container monitoring ===
 [2024-01-15 10:30:00] Namespace: vulnerable-apps
-[2024-01-15 10:30:00] Intervalo: 30 segundos
-[2024-01-15 10:30:02] ✓ Port-forward para vulnerable-web-app iniciado (PID: 12345)
+[2024-01-15 10:30:00] Interval: 30 seconds
+[2024-01-15 10:30:02] ✓ Port-forward for vulnerable-web-app started (PID: 12345)
 [2024-01-15 10:30:05] ✓ vulnerable-web-app (debug): HTTP 200
 [2024-01-15 10:30:05] ✓ vulnerable-web-app (search): HTTP 200
 [2024-01-15 10:30:10] ✓ vulnerable-api (env): HTTP 200
-[2024-01-15 10:30:15] --- Ciclo de monitoreo ---
-[2024-01-15 10:30:15] Pods activos: 4
+[2024-01-15 10:30:15] --- Monitoring cycle ---
+[2024-01-15 10:30:15] Active pods: 4
 ```
-
