@@ -51,11 +51,6 @@ echo -e "\n${YELLOW}Step 3: Deploying applications to cluster...${NC}"
 chmod +x scripts/deploy-to-cluster.sh
 ./scripts/deploy-to-cluster.sh
 
-# Step 4: Deploy Lacework agent in Kubernetes
-echo -e "\n${YELLOW}Step 4: Deploying Lacework agent in Kubernetes...${NC}"
-chmod +x scripts/deploy-lacework-agent-k8s.sh
-./scripts/deploy-lacework-agent-k8s.sh || echo -e "${YELLOW}⚠ Error deploying Lacework (may require manual configuration)${NC}"
-
 echo -e "\n${GREEN}=== Deployment Completed ===${NC}"
 echo -e "${YELLOW}To connect to the bastion:${NC}"
 echo -e "ssh -p 22222 -i <your-key> ubuntu@$BASTION_IP"

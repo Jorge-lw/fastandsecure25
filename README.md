@@ -80,46 +80,6 @@ Note especially:
 - `eks_cluster_name`: Cluster name
 - `aws_region`: AWS region
 
-## Install Security Agents
-
-### Lacework Agent (FortiCNP) on Bastion
-
-The Lacework agent is automatically installed during bastion deployment. If you need to install it manually:
-
-```bash
-# From the bastion
-./scripts/install-lacework-agent-bastion.sh
-
-# Or run manually
-sudo systemctl start lacework-agent
-sudo systemctl enable lacework-agent
-```
-
-### Lacework Agent in Kubernetes
-
-Deploy the agent as a DaemonSet in the cluster:
-
-```bash
-# From your local machine or from the bastion (with cluster access)
-./scripts/deploy-lacework-agent-k8s.sh
-```
-
-Or manually with Helm:
-
-```bash
-helm repo add lacework https://lacework.github.io/helm-charts
-helm repo update
-
-helm upgrade --install \
-  --namespace lacework \
-  --create-namespace \
-  --set laceworkConfig.accessToken='9b12ddd5c28fe9939c3a1f7948c073d989c6a8c37f100df0df5f3aaa' \
-  --set laceworkConfig.serverUrl='https://api.fra.lacework.net' \
-  --set laceworkConfig.kubernetesCluster='lab-cluster' \
-  lacework-agent \
-  lacework/lacework-agent
-```
-
 ## Build and Push Docker Images
 
 Vulnerable images are located in `docker-images/`:

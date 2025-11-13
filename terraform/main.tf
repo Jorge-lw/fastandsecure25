@@ -468,55 +468,6 @@ resource "aws_instance" "bastion" {
     systemctl start docker || echo "Could not start Docker"
     usermod -aG docker ubuntu || echo "Could not add user to docker"
     
-    # Install Lacework agent (FortiCNP)
-    echo "Installing Lacework agent..."
-    mkdir -p /opt/lacework
-    
-    # Detect architecture
-    ARCH=$(uname -m)
-    case $ARCH in
-        x86_64) ARCH="amd64" ;;
-        aarch64|arm64) ARCH="arm64" ;;
-        *) ARCH="amd64" ;;
-    esac
-    
-    # Download Lacework agent
-    LACEWORK_URL="https://2068520.lacework.net/ui/investigation/settings/agents/download/linux/${ARCH}"
-    curl -L -f -o /opt/lacework/lacework-agent "$LACEWORK_URL" || \
-    wget -O /opt/lacework/lacework-agent "$LACEWORK_URL" || \
-    echo "Could not download agent automatically"
-    
-    # Give execution permissions
-    if [ -f /opt/lacework/lacework-agent ]; then
-        chmod +x /opt/lacework/lacework-agent
-        ln -sf /opt/lacework/lacework-agent /usr/local/bin/lacework-agent
-        
-        # Create systemd service
-        cat > /etc/systemd/system/lacework-agent.service <<'LACEWORK_SERVICE'
-[Unit]
-Description=Lacework Agent
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/opt/lacework/lacework-agent
-Restart=always
-RestartSec=10
-User=root
-
-[Install]
-WantedBy=multi-user.target
-LACEWORK_SERVICE
-        
-        systemctl daemon-reload
-        systemctl enable lacework-agent
-        systemctl start lacework-agent || echo "Could not start agent"
-        echo "Lacework agent installed"
-    else
-        echo "WARNING: Lacework agent could not be installed automatically"
-        echo "Run manually: /home/ubuntu/scripts/install-lacework-agent-bastion.sh"
-    fi
-    
     echo "=== Bastion configuration completed ==="
     date
     echo "SSH should be listening on ports 22 and 22222"
