@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vulnerable Legacy Application</title>
+</head>
+<body>
+    <h1>Vulnerable Legacy Application</h1>
+    <p>This is a placeholder application for demonstration purposes.</p>
+    <p>In a real scenario, this would be a WAR file with actual vulnerabilities.</p>
+    
+    <h2>Vulnerabilities:</h2>
+    <ul>
+        <li>Old Tomcat version (8.5) with known CVEs</li>
+        <li>Java 8 with security issues</li>
+        <li>No security manager enabled</li>
+        <li>Running as root</li>
+        <li>Privileged mode</li>
+    </ul>
+    
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file">
+        <input type="submit" value="Upload">
+    </form>
+</body>
+</html>
+

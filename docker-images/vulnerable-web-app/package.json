@@ -1,0 +1,13 @@
+{
+  "name": "vulnerable-web-app",
+  "version": "1.0.0",
+  "description": "Vulnerable web application for security testing",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "4.16.0"
+  }
+}
+

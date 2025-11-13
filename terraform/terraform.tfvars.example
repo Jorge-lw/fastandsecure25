@@ -1,0 +1,13 @@
+aws_region = "us-east-1"
+
+# Genera tu clave SSH con: ssh-keygen -t rsa -b 4096 -f ~/.ssh/bastion_key
+# Luego copia el contenido de ~/.ssh/bastion_key.pub aquí
+bastion_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ... tu-clave-publica-aqui"
+
+vulnerable_image_names = [
+  "vulnerable-web-app",
+  "vulnerable-api",
+  "vulnerable-database",
+  "vulnerable-legacy-app"
+]
+
