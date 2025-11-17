@@ -11,6 +11,7 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
+  profile = "Admin-Forti"
 }
 
 
@@ -453,14 +454,25 @@ resource "aws_instance" "bastion" {
     
     # Install necessary tools (not critical)
     echo "Installing tools..."
-    apt-get install -y curl wget git docker.io awscli jq unzip || echo "Some tools were not installed"
+    apt-get install -y curl wget git docker.io jq unzip || echo "Some tools were not installed"
+    
+    # Install AWS CLI v2 (replaces old v1)
+    echo "Installing AWS CLI v2..."
+    if command -v curl > /dev/null; then
+      curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip && \
+      unzip -q /tmp/awscliv2.zip -d /tmp/ && \
+      /tmp/aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update && \
+      ln -sf /usr/local/bin/aws /usr/bin/aws && \
+      echo "✓ AWS CLI v2 installed" || echo "✗ AWS CLI v2 installation failed"
+      rm -rf /tmp/awscliv2.zip /tmp/aws
+    fi
     
     # Install kubectl (not critical)
     if command -v curl > /dev/null; then
       curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
       chmod +x kubectl && \
       mv kubectl /usr/local/bin/ && \
-      echo "kubectl installed" || echo "kubectl could not be installed"
+      echo "✓ kubectl installed" || echo "✗ kubectl could not be installed"
     fi
     
     # Configure Docker (not critical)

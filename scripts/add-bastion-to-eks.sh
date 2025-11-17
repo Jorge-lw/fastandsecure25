@@ -51,6 +51,12 @@ aws eks update-kubeconfig --region "$AWS_REGION" --name "$CLUSTER_NAME" 2>/dev/n
     echo -e "${GREEN}✓ kubectl configured${NC}" || \
     { echo -e "${RED}✗ Error configuring kubectl${NC}"; exit 1; }
 
+# Fix API version in kubeconfig (replace v1alpha1 with v1beta1)
+if [ -f ~/.kube/config ]; then
+    sed -i.bak 's/client.authentication.k8s.io\/v1alpha1/client.authentication.k8s.io\/v1beta1/g' ~/.kube/config 2>/dev/null || true
+    echo -e "${GREEN}✓ Fixed API version in kubeconfig${NC}"
+fi
+
 # Verify cluster is accessible
 echo -e "\n${YELLOW}[2] Verifying cluster access...${NC}"
 kubectl cluster-info > /dev/null 2>&1 && \
