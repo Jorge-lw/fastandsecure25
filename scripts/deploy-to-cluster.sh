@@ -33,16 +33,17 @@ kubectl cluster-info
 echo -e "${GREEN}Creating namespace for vulnerable applications...${NC}"
 kubectl create namespace vulnerable-apps --dry-run=client -o yaml | kubectl apply -f -
 
-# List of applications to deploy
-declare -A APPS=(
-    ["vulnerable-web-app"]="3000"
-    ["vulnerable-api"]="5000"
-    ["vulnerable-database"]="3306"
-    ["vulnerable-legacy-app"]="8080"
+# List of applications to deploy (app_name:port)
+APPS=(
+    "vulnerable-web-app:3000"
+    "vulnerable-api:5000"
+    "vulnerable-database:3306"
+    "vulnerable-legacy-app:8080"
 )
 
-for APP_NAME in "${!APPS[@]}"; do
-    PORT="${APPS[$APP_NAME]}"
+for APP_INFO in "${APPS[@]}"; do
+    APP_NAME="${APP_INFO%%:*}"
+    PORT="${APP_INFO##*:}"
     ECR_IMAGE="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME:latest"
     
     echo -e "\n${YELLOW}Deploying: $APP_NAME${NC}"

@@ -51,15 +51,20 @@ echo -e "\n${YELLOW}Step 3: Deploying applications to cluster...${NC}"
 chmod +x scripts/deploy-to-cluster.sh
 ./scripts/deploy-to-cluster.sh
 
-# Step 4: Deploy Lacework agent in Kubernetes
-echo -e "\n${YELLOW}Step 4: Deploying Lacework agent in Kubernetes...${NC}"
-chmod +x scripts/deploy-lacework-agent-k8s.sh
-./scripts/deploy-lacework-agent-k8s.sh || echo -e "${YELLOW}⚠ Error deploying Lacework (may require manual configuration)${NC}"
+# Step 4: Add bastion to EKS aws-auth
+echo -e "\n${YELLOW}Step 4: Adding bastion to EKS cluster...${NC}"
+chmod +x scripts/add-bastion-to-eks.sh
+./scripts/add-bastion-to-eks.sh || echo -e "${YELLOW}⚠ Could not add bastion to EKS (may already be added)${NC}"
+
+# Step 5: Configure kubectl on bastion
+echo -e "\n${YELLOW}Step 5: Configuring kubectl on bastion...${NC}"
+chmod +x scripts/configure-bastion-kubectl.sh
+./scripts/configure-bastion-kubectl.sh || echo -e "${YELLOW}⚠ Could not configure kubectl on bastion (may need manual setup)${NC}"
 
 echo -e "\n${GREEN}=== Deployment Completed ===${NC}"
 echo -e "${YELLOW}To connect to the bastion:${NC}"
-echo -e "ssh -p 22222 -i <your-key> ubuntu@$BASTION_IP"
-echo -e "\n${YELLOW}From the bastion, you can:${NC}"
-echo -e "1. Configure kubectl: aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME"
-echo -e "2. View pods: kubectl get pods -n vulnerable-apps"
+echo -e "ssh -p 22222 ubuntu@$BASTION_IP"
+echo -e "\n${YELLOW}From the bastion, you can now:${NC}"
+echo -e "1. View pods: kubectl get pods -n vulnerable-apps"
+echo -e "2. View services: kubectl get services -n vulnerable-apps"
 echo -e "3. Port-forward: kubectl port-forward -n vulnerable-apps svc/vulnerable-web-app 3000:3000"

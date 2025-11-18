@@ -11,6 +11,7 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
+  profile = "Admin-Forti"
 }
 
 
@@ -453,69 +454,31 @@ resource "aws_instance" "bastion" {
     
     # Install necessary tools (not critical)
     echo "Installing tools..."
-    apt-get install -y curl wget git docker.io awscli jq unzip || echo "Some tools were not installed"
+    apt-get install -y curl wget git docker.io jq unzip || echo "Some tools were not installed"
+    
+    # Install AWS CLI v2 (replaces old v1)
+    echo "Installing AWS CLI v2..."
+    if command -v curl > /dev/null; then
+      curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip && \
+      unzip -q /tmp/awscliv2.zip -d /tmp/ && \
+      /tmp/aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update && \
+      ln -sf /usr/local/bin/aws /usr/bin/aws && \
+      echo "✓ AWS CLI v2 installed" || echo "✗ AWS CLI v2 installation failed"
+      rm -rf /tmp/awscliv2.zip /tmp/aws
+    fi
     
     # Install kubectl (not critical)
     if command -v curl > /dev/null; then
       curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
       chmod +x kubectl && \
       mv kubectl /usr/local/bin/ && \
-      echo "kubectl installed" || echo "kubectl could not be installed"
+      echo "✓ kubectl installed" || echo "✗ kubectl could not be installed"
     fi
     
     # Configure Docker (not critical)
     systemctl enable docker || echo "Docker not available"
     systemctl start docker || echo "Could not start Docker"
     usermod -aG docker ubuntu || echo "Could not add user to docker"
-    
-    # Install Lacework agent (FortiCNP)
-    echo "Installing Lacework agent..."
-    mkdir -p /opt/lacework
-    
-    # Detect architecture
-    ARCH=$(uname -m)
-    case $ARCH in
-        x86_64) ARCH="amd64" ;;
-        aarch64|arm64) ARCH="arm64" ;;
-        *) ARCH="amd64" ;;
-    esac
-    
-    # Download Lacework agent
-    LACEWORK_URL="https://2068520.lacework.net/ui/investigation/settings/agents/download/linux/${ARCH}"
-    curl -L -f -o /opt/lacework/lacework-agent "$LACEWORK_URL" || \
-    wget -O /opt/lacework/lacework-agent "$LACEWORK_URL" || \
-    echo "Could not download agent automatically"
-    
-    # Give execution permissions
-    if [ -f /opt/lacework/lacework-agent ]; then
-        chmod +x /opt/lacework/lacework-agent
-        ln -sf /opt/lacework/lacework-agent /usr/local/bin/lacework-agent
-        
-        # Create systemd service
-        cat > /etc/systemd/system/lacework-agent.service <<'LACEWORK_SERVICE'
-[Unit]
-Description=Lacework Agent
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/opt/lacework/lacework-agent
-Restart=always
-RestartSec=10
-User=root
-
-[Install]
-WantedBy=multi-user.target
-LACEWORK_SERVICE
-        
-        systemctl daemon-reload
-        systemctl enable lacework-agent
-        systemctl start lacework-agent || echo "Could not start agent"
-        echo "Lacework agent installed"
-    else
-        echo "WARNING: Lacework agent could not be installed automatically"
-        echo "Run manually: /home/ubuntu/scripts/install-lacework-agent-bastion.sh"
-    fi
     
     echo "=== Bastion configuration completed ==="
     date

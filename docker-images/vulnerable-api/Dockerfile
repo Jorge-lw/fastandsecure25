@@ -13,7 +13,7 @@ ENV JWT_SECRET=insecure_secret_key
 WORKDIR /app
 
 # Vulnerability: Install vulnerable packages
-RUN pip install --no-cache-dir flask==1.1.1 requests==2.20.0
+RUN pip install --no-cache-dir flask==1.1.1 requests==2.20.0 jinja2==2.11.3 markupsafe==2.0.1 itsdangerous==1.1.0 werkzeug==0.16.1 pyyaml==5.1
 
 # Vulnerability: Copy code with vulnerabilities
 COPY api.py .

@@ -65,9 +65,15 @@ terraform apply
 This will create:
 - 2 VPCs (bastion and Kubernetes)
 - VPC Peering between them
-- EC2 bastion instance with Ubuntu
+- EC2 bastion instance with Ubuntu (automatically configured with AWS CLI v2, kubectl, Docker)
 - Minimal EKS cluster (1 node)
 - ECR repositories for vulnerable images
+
+**Note:** The bastion is automatically configured during deployment with:
+- AWS CLI v2 (latest version)
+- kubectl (latest version)
+- Docker
+- All necessary tools
 
 ### 4. Get Deployment Information
 
@@ -80,54 +86,31 @@ Note especially:
 - `eks_cluster_name`: Cluster name
 - `aws_region`: AWS region
 
-## Install Security Agents
+## Complete Automated Deployment
 
-### Lacework Agent (FortiCNP) on Bastion
-
-The Lacework agent is automatically installed during bastion deployment. If you need to install it manually:
+The easiest way to deploy everything is using the complete deployment script:
 
 ```bash
-# From the bastion
-./scripts/install-lacework-agent-bastion.sh
-
-# Or run manually
-sudo systemctl start lacework-agent
-sudo systemctl enable lacework-agent
+chmod +x scripts/complete-deployment.sh
+./scripts/complete-deployment.sh
 ```
 
-### Lacework Agent in Kubernetes
+This script automates the entire process:
+1. **Builds and pushes** all Docker images to ECR
+2. **Deploys** applications to the Kubernetes cluster
+3. **Adds bastion** to EKS aws-auth ConfigMap (allows kubectl access)
+4. **Configures kubectl** on the bastion automatically
 
-Deploy the agent as a DaemonSet in the cluster:
-
-```bash
-# From your local machine or from the bastion (with cluster access)
-./scripts/deploy-lacework-agent-k8s.sh
-```
-
-Or manually with Helm:
-
-```bash
-helm repo add lacework https://lacework.github.io/helm-charts
-helm repo update
-
-helm upgrade --install \
-  --namespace lacework \
-  --create-namespace \
-  --set laceworkConfig.accessToken='9b12ddd5c28fe9939c3a1f7948c073d989c6a8c37f100df0df5f3aaa' \
-  --set laceworkConfig.serverUrl='https://api.fra.lacework.net' \
-  --set laceworkConfig.kubernetesCluster='lab-cluster' \
-  lacework-agent \
-  lacework/lacework-agent
-```
+After running this script, you can immediately use kubectl from the bastion!
 
 ## Build and Push Docker Images
 
 Vulnerable images are located in `docker-images/`:
 
 - **vulnerable-web-app**: Node.js application with multiple vulnerabilities (XSS, SQL Injection, Path Traversal, etc.)
-- **vulnerable-api**: Python/Flask API with vulnerabilities (Deserialization, Command Injection, SSRF, etc.)
+- **vulnerable-api**: Python/Flask API with vulnerabilities (Deserialization, Command Injection, SSRF, etc.) - Fixed dependency compatibility issues
 - **vulnerable-database**: MySQL with insecure configuration and test data
-- **vulnerable-legacy-app**: Legacy application with known vulnerabilities
+- **vulnerable-legacy-app**: Legacy application with known vulnerabilities - Using Tomcat 9 (SecurityManager disabled)
 
 ### Build and Push Manually
 
@@ -135,22 +118,43 @@ Vulnerable images are located in `docker-images/`:
 # Set environment variables
 export AWS_REGION=$(cd terraform && terraform output -raw aws_region)
 export AWS_ACCOUNT_ID=$(cd terraform && terraform output -raw aws_account_id)
+export AWS_PROFILE=Admin-Forti  # Or your AWS profile
 
 # Run script
 chmod +x scripts/build-and-push-images.sh
 ./scripts/build-and-push-images.sh
 ```
 
-### Or Use the Complete Script
+### Rebuild Failed Applications
+
+If any application pods are failing, you can rebuild them:
+
+```bash
+chmod +x scripts/rebuild-failed-apps.sh
+export AWS_PROFILE=Admin-Forti  # Or your AWS profile
+./scripts/rebuild-failed-apps.sh
+```
+
+## Deploy Applications to the Cluster
+
+### Automated Deployment (Recommended)
+
+The easiest way is to use the complete deployment script, which automates everything:
 
 ```bash
 chmod +x scripts/complete-deployment.sh
 ./scripts/complete-deployment.sh
 ```
 
-## Deploy Applications to the Cluster
+This script will:
+1. Build and push all Docker images to ECR
+2. Deploy applications to the Kubernetes cluster
+3. Add the bastion role to EKS aws-auth ConfigMap
+4. Configure kubectl on the bastion automatically
 
-### From Your Local Machine
+### Manual Deployment
+
+#### From Your Local Machine
 
 First, configure kubectl:
 
@@ -158,6 +162,9 @@ First, configure kubectl:
 export AWS_REGION=$(cd terraform && terraform output -raw aws_region)
 export CLUSTER_NAME=$(cd terraform && terraform output -raw eks_cluster_name)
 aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+
+# Fix API version if needed (for older kubectl versions)
+sed -i.bak 's/client.authentication.k8s.io\/v1alpha1/client.authentication.k8s.io\/v1beta1/g' ~/.kube/config
 ```
 
 Then deploy:
@@ -167,26 +174,65 @@ chmod +x scripts/deploy-to-cluster.sh
 ./scripts/deploy-to-cluster.sh
 ```
 
-### From the Bastion
+#### From the Bastion
+
+The bastion is automatically configured with:
+- **AWS CLI v2** (latest version)
+- **kubectl** (latest version)
+- **Docker** (for building images)
 
 1. Connect to the bastion:
 
 ```bash
-ssh -p 22222 -i ~/.ssh/bastion_key ubuntu@<BASTION_IP>
+ssh -p 22222 ubuntu@<BASTION_IP>
 ```
 
-2. Configure kubectl:
+2. Configure kubectl (if not already done):
 
 ```bash
-aws eks update-kubeconfig --region <REGION> --name lab-cluster
+export AWS_REGION=$(terraform output -raw aws_region)
+export CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
+aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+
+# Fix API version if needed
+sed -i.bak 's/client.authentication.k8s.io\/v1alpha1/client.authentication.k8s.io\/v1beta1/g' ~/.kube/config
 ```
 
-3. Deploy applications:
+3. Verify kubectl works:
 
 ```bash
-# From the bastion, you can run the same scripts
-# or use kubectl directly
+kubectl get pods -n vulnerable-apps
+kubectl get services -n vulnerable-apps
 ```
+
+### Adding Bastion to EKS Cluster
+
+If you need to manually add the bastion role to the EKS cluster:
+
+```bash
+chmod +x scripts/add-bastion-to-eks.sh
+./scripts/add-bastion-to-eks.sh
+```
+
+This script:
+- Gets the bastion role ARN from Terraform
+- Adds it to the EKS aws-auth ConfigMap
+- Configures kubectl with the correct API version
+
+### Configuring kubectl on Bastion
+
+To configure kubectl on the bastion remotely:
+
+```bash
+chmod +x scripts/configure-bastion-kubectl.sh
+./scripts/configure-bastion-kubectl.sh
+```
+
+This script:
+- Connects to the bastion via SSH
+- Configures kubectl for the EKS cluster
+- Fixes the API version (v1alpha1 → v1beta1)
+- Verifies that kubectl works correctly
 
 ## Access Applications
 
@@ -238,10 +284,11 @@ Then access `http://localhost:3000` in your browser.
 - **Sensitive Data**: SSN, credit cards unencrypted
 
 ### vulnerable-legacy-app
-- **Old Version**: Tomcat 8.5 with known vulnerabilities
+- **Old Version**: Tomcat 9 with known vulnerabilities
 - **Outdated Java**: OpenJDK 8
 - **No Security Manager**: Disabled
 - **Excessive Permissions**: Running as root, privileged mode
+- **Permissive Security Policy**: All permissions granted
 
 ## Useful Commands
 
@@ -330,7 +377,49 @@ This will remove:
 aws eks describe-cluster --name lab-cluster --region <region>
 
 # Update kubeconfig
-aws eks update-kubeconfig --region <region> --name lab-cluster --kubeconfig ~/.kube/config
+aws eks update-kubeconfig --region <region> --name lab-cluster
+
+# Fix API version if you get "invalid apiVersion v1alpha1" error
+sed -i.bak 's/client.authentication.k8s.io\/v1alpha1/client.authentication.k8s.io\/v1beta1/g' ~/.kube/config
+
+# Or use the fix script
+chmod +x scripts/fix-kubectl-config.sh
+./scripts/fix-kubectl-config.sh
+```
+
+### kubectl API version error
+
+If you see `error: exec plugin: invalid apiVersion "client.authentication.k8s.io/v1alpha1"`:
+
+```bash
+# Fix the kubeconfig file
+sed -i.bak 's/client.authentication.k8s.io\/v1alpha1/client.authentication.k8s.io\/v1beta1/g' ~/.kube/config
+
+# Or use the fix script
+chmod +x scripts/fix-kubectl-config.sh
+./scripts/fix-kubectl-config.sh
+```
+
+### Bastion cannot access cluster
+
+If kubectl on the bastion cannot access the cluster:
+
+1. Verify the bastion role is in aws-auth ConfigMap:
+```bash
+chmod +x scripts/add-bastion-to-eks.sh
+./scripts/add-bastion-to-eks.sh
+```
+
+2. Configure kubectl on the bastion:
+```bash
+chmod +x scripts/configure-bastion-kubectl.sh
+./scripts/configure-bastion-kubectl.sh
+```
+
+3. Verify AWS CLI version on bastion (should be v2):
+```bash
+ssh -p 22222 ubuntu@<BASTION_IP> "aws --version"
+# Should show: aws-cli/2.x.x
 ```
 
 ### Error uploading images to ECR
@@ -352,9 +441,35 @@ kubectl get events -n vulnerable-apps --sort-by='.lastTimestamp'
 # View logs
 kubectl logs -n vulnerable-apps <pod-name>
 
+# View previous container logs (if pod restarted)
+kubectl logs -n vulnerable-apps <pod-name> --previous
+
 # Describe pod
 kubectl describe pod -n vulnerable-apps <pod-name>
+
+# Check pod status
+kubectl get pods -n vulnerable-apps -o wide
 ```
+
+### Application pods failing (CrashLoopBackOff)
+
+If pods are in CrashLoopBackOff state:
+
+1. Check the logs to identify the issue:
+```bash
+kubectl logs -n vulnerable-apps <pod-name> --tail=50
+```
+
+2. Rebuild and redeploy the failed application:
+```bash
+chmod +x scripts/rebuild-failed-apps.sh
+export AWS_PROFILE=Admin-Forti  # Or your AWS profile
+./scripts/rebuild-failed-apps.sh
+```
+
+Common issues:
+- **vulnerable-api**: Dependency compatibility issues (fixed with specific versions)
+- **vulnerable-legacy-app**: SecurityManager issues (fixed with Tomcat 9)
 
 ## Exploitation Scripts
 
@@ -384,6 +499,27 @@ cd ~/exploitation
 ./master-exploit.sh
 ```
 
+## Available Scripts
+
+### Deployment Scripts
+
+- **`scripts/complete-deployment.sh`**: Complete automated deployment (builds, pushes, deploys, configures)
+- **`scripts/build-and-push-images.sh`**: Build and push all Docker images to ECR
+- **`scripts/deploy-to-cluster.sh`**: Deploy applications to Kubernetes cluster
+- **`scripts/rebuild-failed-apps.sh`**: Rebuild and redeploy failed applications
+
+### Configuration Scripts
+
+- **`scripts/add-bastion-to-eks.sh`**: Add bastion IAM role to EKS aws-auth ConfigMap
+- **`scripts/configure-bastion-kubectl.sh`**: Configure kubectl on bastion remotely via SSH
+- **`scripts/fix-kubectl-config.sh`**: Fix kubectl API version (v1alpha1 → v1beta1)
+
+### Utility Scripts
+
+- **`scripts/cleanup-ecr.sh`**: Clean ECR repositories before terraform destroy
+- **`scripts/check-bastion.sh`**: Check bastion host status and connectivity
+- **`scripts/monitor-containers.sh`**: Monitor containers with periodic requests (background)
+
 ## Project Structure
 
 ```
@@ -397,16 +533,20 @@ cd ~/exploitation
 │       └── vpc/                # VPC module
 ├── docker-images/
 │   ├── vulnerable-web-app/    # Vulnerable web application
-│   ├── vulnerable-api/        # Vulnerable API
+│   ├── vulnerable-api/        # Vulnerable API (fixed dependencies)
 │   ├── vulnerable-database/   # Vulnerable database
-│   └── vulnerable-legacy-app/ # Vulnerable legacy application
+│   └── vulnerable-legacy-app/ # Vulnerable legacy application (Tomcat 9)
 ├── scripts/
-│   ├── build-and-push-images.sh    # Build and push images
-│   ├── deploy-to-cluster.sh        # Deploy to cluster
-│   ├── setup-bastion.sh            # Setup bastion
-│   ├── complete-deployment.sh      # Complete script
-│   ├── cleanup-ecr.sh              # Clean ECR before destroy
-│   └── check-bastion.sh            # Check bastion status
+│   ├── build-and-push-images.sh      # Build and push images
+│   ├── deploy-to-cluster.sh          # Deploy to cluster
+│   ├── complete-deployment.sh        # Complete automated deployment
+│   ├── add-bastion-to-eks.sh        # Add bastion to EKS aws-auth
+│   ├── configure-bastion-kubectl.sh  # Configure kubectl on bastion
+│   ├── fix-kubectl-config.sh        # Fix kubectl API version
+│   ├── rebuild-failed-apps.sh       # Rebuild failed applications
+│   ├── cleanup-ecr.sh                # Clean ECR before destroy
+│   ├── check-bastion.sh              # Check bastion status
+│   └── monitor-containers.sh         # Monitor containers (background)
 ├── exploitation/
 │   ├── exploit-web-app.sh          # Exploit web application
 │   ├── exploit-api.sh               # Exploit API
