@@ -59,5 +59,41 @@ def fetch_url():
     response = urllib.request.urlopen(url)
     return response.read()
 
+# Legitimate content - Health check
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "healthy", "version": "1.0.0"})
+
+# Legitimate content - API info
+@app.route('/', methods=['GET'])
+def index():
+    return jsonify({
+        "name": "Vulnerable API",
+        "version": "1.0.0",
+        "endpoints": [
+            "/health",
+            "/api/users",
+            "/api/products"
+        ]
+    })
+
+# Legitimate content - Users API
+@app.route('/api/users', methods=['GET'])
+def api_users():
+    users = [
+        {"id": 1, "name": "John Doe", "email": "john@example.com"},
+        {"id": 2, "name": "Jane Smith", "email": "jane@example.com"},
+    ]
+    return jsonify({"users": users})
+
+# Legitimate content - Products API
+@app.route('/api/products', methods=['GET'])
+def api_products():
+    products = [
+        {"id": 1, "name": "Product A", "price": 99.99},
+        {"id": 2, "name": "Product B", "price": 149.99},
+    ]
+    return jsonify({"products": products})
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

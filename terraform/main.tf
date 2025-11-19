@@ -11,7 +11,7 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  profile = "Admin-Forti"
+  # profile = "your-aws-profile"  # Uncomment and set your AWS profile if needed
 }
 
 
@@ -257,7 +257,7 @@ resource "aws_eks_node_group" "main" {
     min_size     = 1
   }
 
-  instance_types = ["t3.small"]
+  instance_types = ["t3.medium"]
 
   remote_access {
     ec2_ssh_key               = aws_key_pair.bastion.key_name
@@ -378,6 +378,65 @@ resource "aws_iam_role_policy" "bastion_eks" {
   })
 
   depends_on = [aws_eks_cluster.main]
+}
+
+# VULNERABILITY: Overly permissive IAM role for exploitation
+# This role has excessive permissions that can be assumed after compromising the bastion
+resource "aws_iam_role" "exploitation_role" {
+  name = "exploitation-admin-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_role.bastion.arn
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "exploitation-admin-role"
+    Purpose     = "vulnerable-for-exploitation"
+    Environment = "lab"
+  }
+}
+
+# VULNERABILITY: Attach AdministratorAccess policy (full account access)
+resource "aws_iam_role_policy_attachment" "exploitation_admin" {
+  role       = aws_iam_role.exploitation_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+}
+
+# VULNERABILITY: Additional IAM write permissions policy
+resource "aws_iam_role_policy" "exploitation_iam_write" {
+  name = "exploitation-iam-write-policy"
+  role = aws_iam_role.exploitation_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "sts:AssumeRole",
+          "sts:GetCallerIdentity",
+          "sts:GetSessionToken"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 # EC2 bastion instance

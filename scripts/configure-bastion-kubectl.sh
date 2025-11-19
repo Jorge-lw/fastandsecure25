@@ -3,7 +3,15 @@
 # Script to configure kubectl on the bastion host
 # This should be run after the EKS cluster is created and the bastion is added to aws-auth
 
-set -e
+set -euo pipefail
+
+# Use AWS profile if available
+AWS_PROFILE="${AWS_PROFILE:-}"
+AWS_PROFILE_FLAG=""
+if [ -n "$AWS_PROFILE" ]; then
+    AWS_PROFILE_FLAG="--profile $AWS_PROFILE"
+    export AWS_PROFILE
+fi
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -52,11 +60,16 @@ echo -e "${GREEN}✓ SSH connection successful${NC}"
 
 # Configure kubectl on bastion
 echo -e "\n${YELLOW}[2] Configuring kubectl on bastion...${NC}"
-ssh -p 22222 ubuntu@$BASTION_IP <<EOF
-    set -e
+ssh -p 22222 ubuntu@$BASTION_IP bash <<EOF
+    set -euo pipefail
+    
+    # Export AWS profile if provided
+    if [ -n "${AWS_PROFILE:-}" ]; then
+        export AWS_PROFILE="${AWS_PROFILE}"
+    fi
     
     # Update kubeconfig
-    aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME || {
+    aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME ${AWS_PROFILE_FLAG:-} || {
         echo "Error: Could not update kubeconfig"
         exit 1
     }

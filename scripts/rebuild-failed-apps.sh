@@ -24,8 +24,11 @@ if [ ! -f "terraform.tfstate" ]; then
     exit 1
 fi
 
-# Use Admin-Forti profile
-export AWS_PROFILE=Admin-Forti
+# Use AWS profile if available
+AWS_PROFILE="${AWS_PROFILE:-your-aws-profile}"
+if [ -n "$AWS_PROFILE" ] && [ "$AWS_PROFILE" != "your-aws-profile" ]; then
+    export AWS_PROFILE
+fi
 
 AWS_REGION=$(terraform output -raw aws_region 2>/dev/null || echo "eu-central-1")
 AWS_ACCOUNT_ID=$(terraform output -raw aws_account_id 2>/dev/null || echo "")
@@ -34,9 +37,13 @@ CLUSTER_NAME=$(terraform output -raw eks_cluster_name 2>/dev/null || echo "lab-c
 export AWS_REGION
 export AWS_ACCOUNT_ID
 export CLUSTER_NAME
-export AWS_PROFILE=Admin-Forti
-
-echo -e "${GREEN}Using AWS Profile: Admin-Forti${NC}"
+if [ -z "${AWS_PROFILE:-}" ] || [ "$AWS_PROFILE" = "your-aws-profile" ]; then
+    echo -e "${YELLOW}AWS_PROFILE not set. Using default credentials.${NC}"
+    echo -e "${YELLOW}Set AWS_PROFILE environment variable to use a specific profile.${NC}"
+else
+    export AWS_PROFILE
+    echo -e "${GREEN}Using AWS Profile: $AWS_PROFILE${NC}"
+fi
 echo -e "${GREEN}Region: $AWS_REGION${NC}"
 echo -e "${GREEN}Account ID: $AWS_ACCOUNT_ID${NC}"
 echo -e "${GREEN}Cluster: $CLUSTER_NAME${NC}\n"
@@ -45,7 +52,11 @@ cd "$PROJECT_ROOT"
 
 # Login to ECR
 echo -e "${YELLOW}Logging in to ECR...${NC}"
-aws ecr get-login-password --region $AWS_REGION --profile Admin-Forti | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+AWS_PROFILE_FLAG=""
+if [ -n "${AWS_PROFILE:-}" ] && [ "$AWS_PROFILE" != "your-aws-profile" ]; then
+    AWS_PROFILE_FLAG="--profile $AWS_PROFILE"
+fi
+aws ecr get-login-password --region $AWS_REGION $AWS_PROFILE_FLAG | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
 # Rebuild vulnerable-api
 echo -e "\n${YELLOW}Rebuilding vulnerable-api...${NC}"
