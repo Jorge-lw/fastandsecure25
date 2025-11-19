@@ -2,7 +2,7 @@
 
 # Script to deploy vulnerable images to the EKS cluster
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -10,21 +10,41 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Use AWS profile if available
+AWS_PROFILE="${AWS_PROFILE:-}"
+AWS_PROFILE_FLAG=""
+if [ -n "$AWS_PROFILE" ]; then
+    AWS_PROFILE_FLAG="--profile $AWS_PROFILE"
+    export AWS_PROFILE
+fi
+
 # Variables
-if [ -z "$AWS_REGION" ]; then
-    AWS_REGION="us-east-1"
+if [ -z "${AWS_REGION:-}" ]; then
+    if [ -f "terraform/terraform.tfstate" ]; then
+        AWS_REGION=$(cd terraform && terraform output -raw aws_region 2>/dev/null || echo "eu-central-1")
+    else
+        AWS_REGION="eu-central-1"
+    fi
 fi
 
-if [ -z "$CLUSTER_NAME" ]; then
-    CLUSTER_NAME="lab-cluster"
+if [ -z "${CLUSTER_NAME:-}" ]; then
+    if [ -f "terraform/terraform.tfstate" ]; then
+        CLUSTER_NAME=$(cd terraform && terraform output -raw eks_cluster_name 2>/dev/null || echo "lab-cluster")
+    else
+        CLUSTER_NAME="lab-cluster"
+    fi
 fi
 
-if [ -z "$AWS_ACCOUNT_ID" ]; then
-    AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+if [ -z "${AWS_ACCOUNT_ID:-}" ]; then
+    AWS_ACCOUNT_ID=$(aws sts get-caller-identity $AWS_PROFILE_FLAG --query Account --output text)
 fi
+
+export AWS_REGION
+export CLUSTER_NAME
+export AWS_ACCOUNT_ID
 
 echo -e "${GREEN}Configuring kubectl for cluster: $CLUSTER_NAME${NC}"
-aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME $AWS_PROFILE_FLAG
 
 echo -e "${GREEN}Verifying cluster connection...${NC}"
 kubectl cluster-info
@@ -39,6 +59,9 @@ APPS=(
     "vulnerable-api:5000"
     "vulnerable-database:3306"
     "vulnerable-legacy-app:8080"
+    "blog-app:8080"
+    "ecommerce-app:8080"
+    "voting-app:8080"
 )
 
 for APP_INFO in "${APPS[@]}"; do
@@ -84,7 +107,23 @@ spec:
           runAsUser: 0
           privileged: true
         # Vulnerability: No strict resource limits
----
+EOF
+
+    # Create service (handle multiple apps on same port)
+    if [ "$APP_NAME" = "blog-app" ] || [ "$APP_NAME" = "ecommerce-app" ]; then
+        # Use different service port for apps sharing container port 8080
+        if [ "$APP_NAME" = "blog-app" ]; then
+            SERVICE_PORT=8081
+        else
+            SERVICE_PORT=8082
+        fi
+    else
+        SERVICE_PORT=$PORT
+    fi
+    
+    # VULNERABILITY: Expose services directly to internet using LoadBalancer
+    # This allows direct access from attacker's machine without needing port-forward
+    cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Service
 metadata:
@@ -93,9 +132,9 @@ metadata:
   labels:
     app: $APP_NAME
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   ports:
-  - port: $PORT
+  - port: $SERVICE_PORT
     targetPort: $PORT
     protocol: TCP
   selector:
@@ -117,6 +156,7 @@ kubectl get pods -n vulnerable-apps
 echo -e "\n${GREEN}Service status:${NC}"
 kubectl get services -n vulnerable-apps
 
-echo -e "\n${YELLOW}To access applications from the bastion:${NC}"
-echo -e "${GREEN}kubectl port-forward -n vulnerable-apps svc/vulnerable-web-app 3000:3000${NC}"
-echo -e "${GREEN}kubectl port-forward -n vulnerable-apps svc/vulnerable-api 5000:5000${NC}"
+echo -e "\n${YELLOW}Services exposed via LoadBalancer (accessible from internet):${NC}"
+echo -e "${GREEN}Get LoadBalancer URLs with: kubectl get svc -n vulnerable-apps${NC}"
+echo -e "${YELLOW}Note: Services are now directly accessible from your local machine${NC}"
+echo -e "${YELLOW}Wait a few minutes for LoadBalancer IPs to be assigned${NC}"

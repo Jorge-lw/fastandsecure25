@@ -2,7 +2,15 @@
 
 # Script to add bastion role to EKS cluster aws-auth ConfigMap
 
-set -e
+set -euo pipefail
+
+# Use AWS profile if available
+AWS_PROFILE="${AWS_PROFILE:-}"
+AWS_PROFILE_FLAG=""
+if [ -n "$AWS_PROFILE" ]; then
+    AWS_PROFILE_FLAG="--profile $AWS_PROFILE"
+    export AWS_PROFILE
+fi
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -32,7 +40,7 @@ fi
 if [ -z "$BASTION_ROLE_ARN" ]; then
     echo -e "${RED}Could not get bastion role ARN${NC}"
     echo -e "${YELLOW}Getting from AWS directly...${NC}"
-    BASTION_ROLE_ARN=$(aws iam get-role --role-name bastion-role --query 'Role.Arn' --output text 2>/dev/null || echo "")
+    BASTION_ROLE_ARN=$(aws iam get-role --role-name bastion-role $AWS_PROFILE_FLAG --query 'Role.Arn' --output text 2>/dev/null || echo "")
 fi
 
 if [ -z "$BASTION_ROLE_ARN" ]; then
@@ -47,7 +55,7 @@ echo ""
 
 # Configure kubectl
 echo -e "${YELLOW}[1] Configuring kubectl...${NC}"
-aws eks update-kubeconfig --region "$AWS_REGION" --name "$CLUSTER_NAME" 2>/dev/null && \
+aws eks update-kubeconfig --region "$AWS_REGION" --name "$CLUSTER_NAME" $AWS_PROFILE_FLAG 2>/dev/null && \
     echo -e "${GREEN}✓ kubectl configured${NC}" || \
     { echo -e "${RED}✗ Error configuring kubectl${NC}"; exit 1; }
 

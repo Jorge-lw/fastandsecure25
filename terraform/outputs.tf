@@ -51,3 +51,8 @@ output "bastion_role_arn" {
   value       = aws_iam_role.bastion.arn
 }
 
+output "exploitation_role_arn" {
+  description = "ARN of the exploitation IAM role (overly permissive)"
+  value       = aws_iam_role.exploitation_role.arn
+}
+
