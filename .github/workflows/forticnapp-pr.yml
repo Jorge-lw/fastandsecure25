@@ -1,0 +1,54 @@
+name: FortiCNAPP Code Security (PR)
+
+on:
+  pull_request:
+    # paths: ['app/**', '.github/**']   # <-- opcional en monorepos
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  LW_ACCOUNT_NAME: ${{ secrets.LW_ACCOUNT_NAME }}
+  LW_SUBACCOUNT_NAME: ${{ secrets.LW_SUBACCOUNT_NAME }} # opcional si usas subcuentas
+  LW_API_KEY: ${{ secrets.LW_API_KEY }}
+  LW_API_SECRET: ${{ secrets.LW_API_SECRET }}
+
+concurrency:
+  group: forticnapp-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-analysis:
+    name: Analyze (new vs old)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [new, old]
+    steps:
+      - name: Checkout (fetch 2 commits)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Checkout old
+        if: ${{ matrix.target == 'old' }}
+        run: git checkout HEAD^1
+
+      - name: FortiCNAPP analyze (${{ matrix.target }})
+        # Recomendación: fija por SHA en producción (ver comentario de seguridad)
+        uses: lacework/code-security-action@v1
+        with:
+          target: ${{ matrix.target }}
+
+  display-results:
+    name: Annotate PR
+    runs-on: ubuntu-latest
+    needs: run-analysis
+    steps:
+      - name: Results
+        id: code-analysis
+        uses: lacework/code-security-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+

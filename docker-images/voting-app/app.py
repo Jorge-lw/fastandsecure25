@@ -36,53 +36,234 @@ INDEX_TEMPLATE = '''
 <head>
     <title>Voting System</title>
     <style>
-        body { font-family: Arial; max-width: 800px; margin: 50px auto; padding: 20px; }
-        .vote-section { margin: 30px 0; padding: 20px; border: 1px solid #ddd; }
-        .vote-btn { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
-        .results { margin-top: 30px; }
-        .comment-section { margin-top: 30px; }
-        .admin-link { float: right; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .content {
+            padding: 40px;
+        }
+        .question {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: 600;
+        }
+        .vote-section {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 40px;
+            border-radius: 15px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        .vote-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .vote-btn {
+            padding: 15px 40px;
+            font-size: 1.2em;
+            font-weight: 600;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .vote-btn-yes {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+        }
+        .vote-btn-yes:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(17, 153, 142, 0.6);
+        }
+        .vote-btn-no {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(235, 51, 73, 0.4);
+        }
+        .vote-btn-no:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(235, 51, 73, 0.6);
+        }
+        .results {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+        }
+        .results h2 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            text-align: center;
+        }
+        .result-item {
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        .result-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .result-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #f5576c;
+        }
+        .comment-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+        }
+        .comment-section h3 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 1em;
+            resize: vertical;
+        }
+        .submit-btn {
+            margin-top: 15px;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+        .comments {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+        .comments h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .footer-links {
+            margin-top: 40px;
+            text-align: center;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+        .footer-links a {
+            color: #f5576c;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .footer-links a:hover {
+            color: #f093fb;
+        }
     </style>
 </head>
 <body>
-    <h1>Security Survey</h1>
-    <p>Question: Is this system secure?</p>
-    
-    <div class="vote-section">
-        <form method="POST" action="/vote">
-            <input type="hidden" name="question_id" value="1">
-            <button type="submit" name="vote" value="yes" class="vote-btn">✓ YES</button>
-            <button type="submit" name="vote" value="no" class="vote-btn">✗ NO</button>
-        </form>
-    </div>
-    
-    <div class="results">
-        <h2>Current Results</h2>
-        <p>YES: {{ yes_count }}</p>
-        <p>NO: {{ no_count }}</p>
-        <p>Total Votes: {{ total }}</p>
-    </div>
-    
-    <div class="comment-section">
-        <h3>Add Comment</h3>
-        <form method="POST" action="/comment">
-            <textarea name="comment" rows="4" cols="50" placeholder="Your comment..."></textarea><br>
-            <input type="submit" value="Submit Comment">
-        </form>
-    </div>
-    
-    <div class="comments">
-        <h3>Recent Comments</h3>
-        {{ comments|safe }}
-    </div>
-    
-    <div class="admin-link">
-        <a href="/admin">Admin Panel</a>
-    </div>
-    
-    <div style="margin-top: 30px;">
-        <a href="/api/votes">API Endpoint</a> | 
-        <a href="/debug">Debug Info</a>
+    <div class="container">
+        <header>
+            <h1>🗳️ Security Survey</h1>
+        </header>
+        <div class="content">
+            <div class="question">Question: Is this system secure?</div>
+            
+            <div class="vote-section">
+                <form method="POST" action="/vote">
+                    <input type="hidden" name="question_id" value="1">
+                    <div class="vote-buttons">
+                        <button type="submit" name="vote" value="yes" class="vote-btn vote-btn-yes">✓ YES</button>
+                        <button type="submit" name="vote" value="no" class="vote-btn vote-btn-no">✗ NO</button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="results">
+                <h2>📊 Current Results</h2>
+                <div class="results-grid">
+                    <div class="result-item">
+                        <div class="result-label">YES Votes</div>
+                        <div class="result-value">{{ yes_count }}</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">NO Votes</div>
+                        <div class="result-value">{{ no_count }}</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Total</div>
+                        <div class="result-value">{{ total }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="comment-section">
+                <h3>💬 Add Comment</h3>
+                <form method="POST" action="/comment">
+                    <textarea name="comment" rows="4" placeholder="Share your thoughts..."></textarea><br>
+                    <button type="submit" class="submit-btn">Submit Comment</button>
+                </form>
+            </div>
+            
+            <div class="comments">
+                <h3>Recent Comments</h3>
+                {{ comments|safe }}
+            </div>
+            
+            <div class="footer-links">
+                <a href="/admin">🔐 Admin Panel</a>
+                <a href="/api/votes">📡 API Endpoint</a>
+                <a href="/debug">🔍 Debug Info</a>
+            </div>
+        </div>
     </div>
 </body>
 </html>
@@ -94,10 +275,55 @@ ADMIN_TEMPLATE = '''
 <head>
     <title>Admin Panel</title>
     <style>
-        body { font-family: Arial; max-width: 1000px; margin: 50px auto; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 40px;
+        }
+        header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 40px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
     </style>
 </head>
 <body>

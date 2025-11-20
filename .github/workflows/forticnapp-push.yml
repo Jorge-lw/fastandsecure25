@@ -1,0 +1,31 @@
+name: FortiCNAPP Code Security (Push)
+
+on:
+  push:
+    branches: [ main ]
+    # paths: ['terraform/**', 'kubernetes/**', '.github/**']  # opcional en monorepos
+  schedule:
+    - cron: '0 7 * * *'   # diario 07:00 UTC
+  workflow_dispatch:
+
+env:
+  LW_ACCOUNT_NAME: ${{ secrets.LW_ACCOUNT_NAME }}
+  LW_SUBACCOUNT_NAME: ${{ secrets.LW_SUBACCOUNT_NAME }} # opcional
+  LW_API_KEY: ${{ secrets.LW_API_KEY }}
+  LW_API_SECRET: ${{ secrets.LW_API_SECRET }}
+
+concurrency:
+  group: forticnapp-push-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: FortiCNAPP analyze (push)
+        uses: lacework/code-security-action@v1
+        with:
+          target: push
+
